@@ -63,14 +63,15 @@ void handelConnections()
     wifiTimer.reset();
     wifiOta.connectWiFi();
   }
-  else if (!mqttConnect.connected() && wifiOta.status() == WL_CONNECTED && mqttTimer.checkInterval() == RUNCODE)
+  
+  else if (/*!mqttConnect.connected() && */ wifiOta.status() == WL_CONNECTED && mqttTimer.checkInterval() == RUNCODE)
   {
     mqttTimer.reset();
     Serial.println("Restarting device standby .. ");
     delay(2000);
     ESP.restart();
   }
-  else if (!mqttConnect.connected() && wifiOta.status() == WL_CONNECTED)
+  else if (/*!mqttConnect.connected() && */wifiOta.status() == WL_CONNECTED)
   {
     Serial.println("dissconnected from mqtt.. ");
     delay(200);

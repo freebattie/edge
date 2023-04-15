@@ -22,7 +22,7 @@ Timer wifiTimer = Timer();
 Timer mqttTimer = Timer();
 Ota wifiOta = Ota();
 Storage store = Storage();
-
+void setupTimers();
 
 void setup() {
   // put your setup code here, to run once:

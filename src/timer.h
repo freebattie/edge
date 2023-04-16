@@ -4,12 +4,8 @@
 #include <Arduino.h>
 // #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <Wire.h>
-enum status_t {STOPPED, RUNNING, PAUSED,RUNCODE};
-enum resolution_t
-{
-    MICROS,
-    MILLIS
-};
+#include "enum.h"
+
 
 class Timer
 {

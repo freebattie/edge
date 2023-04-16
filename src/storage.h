@@ -5,19 +5,9 @@
 // #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <Preferences.h>
 #include "arduino_secrets.h"
+#include "struct.h"
 
 
-typedef struct
-{
-    String deviceName;
-    String mqtt_pass;
-    String mqtt_username;
-    String location;
-    String city;
-    String fw;
-    String build;
-   
-} profile_t;
 
 class Storage
 {

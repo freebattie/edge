@@ -1,10 +1,8 @@
 #include "rgbColor.h"
-#define NUMPIXELS 1
-#define DATAPIN 33
-#define CLOCKPIN 21
+
 RgbColor::RgbColor(Adafruit_DotStar &strip) : _strip(strip)
 {
-    setup();
+    
 }
 
 RgbColor::RgbColor(Adafruit_DotStar &strip, int brightness, Color defaultColor) : _strip(strip)
@@ -53,29 +51,29 @@ void RgbColor::setState(ColorState state)
 {
     switch (_state)
     {
-    case ColorState::ALARM:
-        if (state != ColorState::ALARMOFF)
+    case ALARM:
+        if (state != ALARMOFF)
             break;
         else
         {
             _state = state;
         }
         break;
-    case ColorState::ALARMOFF:
-    case ColorState::FINDOFF:
-    case ColorState::GROWOFF:
+    case ALARMOFF:
+    case FINDOFF:
+    case GROWOFF:
         _state = state;
         break;
-    case ColorState::NORMAL:
-        if (state == ColorState::ALARMOFF)
+    case NORMAL:
+        if (state == ALARMOFF)
             break;
         else
         {
             _state = state;
         }
         break;
-    case ColorState::FIND:
-        if (state != ColorState::ALARM && state != ColorState::FINDOFF)
+    case FIND:
+        if (state != ALARM && state != FINDOFF)
             break;
         else
         {
@@ -83,8 +81,8 @@ void RgbColor::setState(ColorState state)
         }
         break;
 
-    case ColorState::GROW:
-        if (state != ColorState::ALARM && state != ColorState::GROWOFF)
+    case GROW:
+        if (state != ALARM && state != GROWOFF)
             break;
         else
         {
@@ -96,26 +94,32 @@ void RgbColor::setState(ColorState state)
     }
 }
 
+ColorState RgbColor::getState()
+{
+    return _state;
+}
+
 void RgbColor::handelLight()
 {
     switch (_state)
     {
-    case ColorState::ALARM:
-        setColor(Color::RED);
+    case ALARM:
+        setColor(RED);
         break;
-    case ColorState::NORMAL:
-    case ColorState::ALARMOFF:
-    case ColorState::FINDOFF:
-    case ColorState::GROWOFF:
+    case NORMAL:
+    case ALARMOFF:
+    case FINDOFF:
+    case GROWOFF:
         _strip.clear();
         break;
-    case ColorState::FIND:
-        setColor(Color::BLUE);
+    case FIND:
+        setColor(BLUE);
         break;
-    case ColorState::GROW:
-        setColor(Color::YELLOW);
+    case GROW:
+        setColor(YELLOW);
         break;
     default:
         break;
     }
+    _strip.show();
 }

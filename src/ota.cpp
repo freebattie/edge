@@ -18,10 +18,11 @@ void Ota::connectWiFi(String ssid, String pass)
     WiFi.begin(ssid.c_str(), pass.c_str());
     Timer setupTimer = Timer();
     setupTimer.setInterval(5000);
+    setupTimer.start();
     while (setupTimer.checkInterval() != RUNCODE && setupTimer.checkInterval() != STOPPED)
     {
-        setupTimer.reset();
-        if (setupTimer.readElaspedTime() < 10000)
+        
+        if (setupTimer.readElaspedTime() > 10000)
         {
             setupTimer.stop();
             Serial.println("WiFi connection failed");

@@ -27,7 +27,7 @@ void Storage::start()
     
     _profileSave.deviceName = NAME;
     _profileSave.location = "";
-    _profileSave.city= "";
+    _profileSave.city= "Oslo";
     _profileSave.mqtt_pass = MQTT_PASSWORD;
     _profileSave.mqtt_username=NAME;
     _profileSave.fw="fw-dev-update-v1.bin";

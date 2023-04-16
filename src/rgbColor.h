@@ -3,7 +3,9 @@
 
 #include <Adafruit_DotStar.h>
 #include "enum.h"
-
+#define NUMPIXELS 1
+#define DATAPIN 33
+#define CLOCKPIN 21
 
 
 
@@ -19,6 +21,7 @@ class RgbColor{
         //void setDefaultColorIntevall(int intervall );
         void resetColor();
         void setState(ColorState state);
+        ColorState getState();
         //void setupRgbLight(int brightness);
         void handelLight();
     private:

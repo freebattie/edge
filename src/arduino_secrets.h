@@ -6,5 +6,7 @@
 #define MQTT_HOST IPAddress(172, 20, 10, 8)
 #define MQTT_PORT 4000
 #define MQTT_PASSWORD "bjkajdks"
+#define MIN_LIGH_HOURS 8
+#define SUN_UP_HOUR
 
 #define FW_BUILD "dev";

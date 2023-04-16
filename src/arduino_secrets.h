@@ -7,6 +7,6 @@
 #define MQTT_PORT 4000
 #define MQTT_PASSWORD "bjkajdks"
 #define MIN_LIGH_HOURS 8
-#define SUN_UP_HOUR
+#define SUN_UP_HOUR 7
 
 #define FW_BUILD "dev";

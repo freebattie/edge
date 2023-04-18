@@ -248,6 +248,9 @@ bool LightSensor::isSunny()
 
 void LightSensor::handelSunlightLogging()
 {
+    int hours = readhour();
+    if(_lastHours <= hours)
+    return;
     ColorState state = _rgb.getState();
     if (state == GROW)
     {
@@ -259,7 +262,7 @@ void LightSensor::handelSunlightLogging()
         }
     }
 
-    int hours = readhour();
+    
     if (!_isCurrentSun &&
         state == GROW &&
         _lightHours.totalHours() + (_lastHours - hours) >= MIN_LIGH_HOURS &&

@@ -23,6 +23,7 @@ public:
     bool connected();
     bool isUpdateProfile();
     bool isUpdateFW();
+    bool getIsFindMe();
     profile_t getProfile();
     bool getIsDissconectAlarm();
 
@@ -47,6 +48,7 @@ private:
 
     static bool _isUpdateProfile;
     static bool _isDownload;
+    static bool _isFindMe;
 
     static profile_t _profile;
     static Storage _storeProfile;

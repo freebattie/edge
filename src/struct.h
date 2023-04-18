@@ -48,6 +48,7 @@ typedef struct
     bool isDoorOpen;
     bool isWindowOpen;
     bool isWindowOpenAlarm;
+    bool isWindowClosedAndHotOutside;
     bool isDeviceAlarm;
     bool isFindMe;
 } sensor_flag_t;

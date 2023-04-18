@@ -13,6 +13,7 @@ const char *Mqtt::LOCATION_LOGGING_TOPIC = "%s/logging";
 bool Mqtt::_isUpdateProfile = false;
 bool Mqtt::_isDownload = false;
 bool Mqtt::_isMqttDisconectAlarm = false;
+bool Mqtt::_isFindMe = false;
 
 profile_t Mqtt::_profile;
 Storage Mqtt::_storeProfile;
@@ -89,6 +90,11 @@ bool Mqtt::isUpdateProfile()
 bool Mqtt::isUpdateFW()
 {
     return _isDownload;
+}
+
+bool Mqtt::getIsFindMe()
+{
+    return _isFindMe;
 }
 
 void Mqtt::setIsUpdateProfile(bool update)
@@ -223,6 +229,7 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
     if (strcmp(topic, DEVICE) == 0)
     {
         _profile.mqtt_pass = doc["password"].as<String>();
+        _isFindMe = doc["findMe"];
         _mqttClient.disconnect(true);
         _mqttClient.connect();
     }

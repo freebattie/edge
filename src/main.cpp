@@ -17,11 +17,14 @@
 #include "roomStatus.h"
 #include "lightSensor.h"
 
+#include <WiFi.h>
+#include <HTTPClient.h>
 Adafruit_DotStar strip = Adafruit_DotStar(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BGR);
 #define HALL_SENSOR_PIN 1
 
 Timer wifiTimer = Timer();
 Timer mqttTimer = Timer();
+Timer mqttIntervall = Timer();
 Ota wifiOta = Ota();
 Mqtt mqttClient = Mqtt();
 Storage store = Storage();
@@ -35,12 +38,20 @@ sensor_flag_t currentFlags;
 live_values_t liveValues;
 light_data_t totalHoursOfLight;
 mqtt_testing_t mqttTesting;
+ColorState oldState = NORMAL;
+const char *URL = "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric";
 void setupTimers();
 void handelConnections();
 void readLiveSensorValues();
 void transmittOnValueChanged();
 bool isAlarmLimitReached(float val, int limit, bool isUpperLimit);
 void transmittLiveValues();
+void handelData();
+void handelDeviceAlarm();
+void handelProfileUpdate();
+String GetWeather();
+void handelDownloadFW();
+void handelFindMe();
 void setup()
 {
   setupTimers();
@@ -61,22 +72,72 @@ void setup()
   profile = store.getProfile();
   Serial.println("SETUP DONE");
   Serial.println(profile.city);
+  lastFlags.isLogging = store.getProfile().location.length() > 0;
 }
 
 void loop()
 {
   handelConnections();
-
   rgb.handelLight();
   tempSensor.handelSensor();
   room.handelSensors();
- 
-  // tempSensor.checkForHeaterFailure(temp+5);
-  // rgb.setState(ColorState::FIND);
   rgb.handelLight();
   lux.handelSensor();
+
   if (lastFlags.isLogging)
   {
+    handelData();
+  }
+  handelDownloadFW();
+  handelProfileUpdate();
+  handelDeviceAlarm();
+  handelFindMe();
+  delay(400);
+}
+
+#pragma region Methods
+void handelFindMe(){
+  if (mqttClient.getIsFindMe())
+  {
+    oldState = rgb.getState();
+    rgb.setState(FIND);
+  }
+  else{
+    rgb.setState(oldState != FIND?oldState:FINDOFF );
+  }
+  
+}
+void handelProfileUpdate(){
+if (mqttClient.isUpdateProfile())
+  {
+    profile = store.getProfile();
+    mqttClient.setIsUpdateProfile(false);
+  }
+}
+void handelDownloadFW()
+{
+  if (mqttClient.isUpdateFW())
+  {
+    wifiOta.update(profile);
+    mqttClient.setIsUpdateFW(false);
+  }
+}
+void handelDeviceAlarm()
+{
+  if (mqttClient.getIsDissconectAlarm())
+  {
+    rgb.setState(ALARM);
+  }
+  else
+  {
+    rgb.setState(ALARMOFF);
+  }
+}
+void handelData()
+{
+  if (mqttIntervall.checkInterval() == RUNCODE)
+  {
+    mqttIntervall.reset();
     readLiveSensorValues();
     // send data on change
     transmittOnValueChanged();
@@ -97,32 +158,11 @@ void loop()
       lux.setSendData(false);
     }
   }
-
-  if (mqttClient.isUpdateProfile())
-  {
-    profile = store.getProfile();
-    mqttClient.setIsUpdateProfile(false);
-  }
-  if (mqttClient.isUpdateFW())
-  {
-    wifiOta.update(profile);
-    mqttClient.setIsUpdateFW(false);
-  }
-  if (mqttClient.getIsDissconectAlarm())
-  {
-   rgb.setState(ALARM);
-  }
-  else
-  {
-     rgb.setState(ALARMOFF);
-  }
-  
-  delay(400);
 }
 
 void readLiveSensorValues()
 {
-  ColorState state = rgb.getState();
+
   currentFlags.isDeviceAlarm = rgb.getState() == ALARM ? true : false;
   currentFlags.isDoorOpen = room.getIsDoorOpen();
   currentFlags.isFindMe = rgb.getState() == FIND ? true : false;
@@ -134,24 +174,75 @@ void readLiveSensorValues()
   liveValues.temp = temp;
   liveValues.lux = lux.getLux();
 
-  currentFlags.isHighHumidityAlarm = isAlarmLimitReached(humid, 90, true);
-  currentFlags.isLowHumidityAlarm = isAlarmLimitReached(humid, 50, false);
-  currentFlags.isHighHumidityWarning = isAlarmLimitReached(humid, 65, true);
-  currentFlags.isLowHumidityWarning = isAlarmLimitReached(humid, 55, false);
+  currentFlags.isHighHumidityAlarm = isAlarmLimitReached(humid, HUMID_H_ALARM, true);
+  currentFlags.isLowHumidityAlarm = isAlarmLimitReached(humid, HUMID_L_ALARM, false);
+  currentFlags.isHighHumidityWarning = isAlarmLimitReached(humid, HUMID_H_WARN, true);
+  currentFlags.isLowHumidityWarning = isAlarmLimitReached(humid, HUMID_L_WARN, false);
 
-  currentFlags.isHighTempAlarm = isAlarmLimitReached(temp, 33, true);
-  currentFlags.isLowTempAlarm = isAlarmLimitReached(temp, 14, false);
-  currentFlags.isHighTempWarning = isAlarmLimitReached(temp, 30, true);
-  currentFlags.isLowTempWarning = isAlarmLimitReached(temp, 24, false);
+  currentFlags.isHighTempAlarm = isAlarmLimitReached(temp, TEMP_H_ALARM, true);
+  currentFlags.isLowTempAlarm = isAlarmLimitReached(temp, TEMP_L_ALARM, false);
+  currentFlags.isHighTempWarning = isAlarmLimitReached(temp, TEMP_H_WARN, true);
+  currentFlags.isLowTempWarning = isAlarmLimitReached(temp, TEMP_L_WARN, false);
 
   currentFlags.isWindowOpen = room.getIsWindowOpen();
   lastFlags.isWindowOpenAlarm = false; // TODO GET WEATHER AND REOPRT
   currentFlags.isLogging = store.getProfile().location.length() > 0;
 
-  // TODO: CALL WEATHER API AND GET WEATHER
-  // TODO: GET IF LOGGING OR NOT??
-}
+  String buffer = GetWeather();
+  StaticJsonDocument<256> doc;
+  deserializeJson(doc, buffer);
 
+  int outsideTemp = doc["main"]["temp"];
+  String sky = doc["weather"]["main"];
+
+  if (outsideTemp < HEATER_FAILURE_TEMP && currentFlags.isWindowOpen)
+  {
+    currentFlags.isWindowOpenAlarm = true;
+  }
+  else
+  {
+    currentFlags.isWindowOpenAlarm = false;
+  }
+
+  if (outsideTemp > HEATER_FAILURE_TEMP && sky == "Clear")
+  {
+    currentFlags.isWindowClosedAndHotOutside = true;
+  }
+  else
+  {
+    currentFlags.isWindowClosedAndHotOutside = false;
+  }
+
+  // TODO: CALL WEATHER API AND GET WEATHER
+}
+String GetWeather()
+{
+  char url_path[32];
+  snprintf(url_path, sizeof(url_path), URL, profile.city, WEATHER_API_KEY);
+  HTTPClient http;
+
+  http.begin(url_path);
+
+  int resCode = http.GET();
+
+  String data = "";
+
+  if (resCode > 0)
+  {
+    Serial.print("HTTP Response code: ");
+    Serial.println(resCode);
+    data = http.getString();
+  }
+  else
+  {
+    Serial.print("Error code: ");
+    Serial.println(resCode);
+  }
+
+  // Free resources
+  http.end();
+  return data;
+}
 bool transmittGivenValueOnChange(bool oldVal, bool newVal, String type, String name)
 {
   StaticJsonDocument<256> doc;
@@ -164,7 +255,7 @@ bool transmittGivenValueOnChange(bool oldVal, bool newVal, String type, String n
 
     serializeJson(doc, msg);
     mqttClient.publish(profile.location + "/alarm", msg);
-    delay(1000);
+    delay(ON_CHANGE_SPACING);
     doc.clear();
     return newVal;
   }
@@ -174,7 +265,6 @@ bool transmittGivenValueOnChange(bool oldVal, bool newVal, String type, String n
 
 void transmittOnValueChanged()
 {
- 
 
   lastFlags.isDeviceAlarm = transmittGivenValueOnChange(lastFlags.isDeviceAlarm, currentFlags.isDeviceAlarm, "ALARM", "device");
   lastFlags.isDoorOpen = transmittGivenValueOnChange(lastFlags.isDoorOpen, currentFlags.isDoorOpen, "ALARM", "door");
@@ -231,7 +321,7 @@ void transmittLiveValues()
   doc["humidity"] = liveValues.humidity;
   serializeJson(doc, msg);
   mqttClient.publish(profile.location + "/live", msg);
-  
+
   doc.clear();
 }
 void handelTransmittingBoolState()
@@ -243,7 +333,8 @@ void handelTransmittingBoolState()
 }
 void setupTimers()
 {
-
+  mqttIntervall.setInterval(1000);
+  mqttIntervall.start();
   wifiTimer.setInterval(5000);
   wifiTimer.start();
 
@@ -270,3 +361,4 @@ void handelConnections()
     delay(200);
   }
 }
+#pragma endregion

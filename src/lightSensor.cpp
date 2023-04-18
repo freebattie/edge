@@ -5,7 +5,6 @@ LightSensor::LightSensor(RgbColor &rgb) : _rgb(rgb)
     configTime(_gmtOffset_sec, _daylightOffset_sec, _ntpServer);
 
     _ltr = Adafruit_LTR329();
-
 }
 
 void LightSensor::setup()
@@ -13,6 +12,7 @@ void LightSensor::setup()
     if (!_ltr.begin())
     {
         Serial.println("Couldn't find LTR sensor!");
+         _rgb.setState(ALARM);
         while (1)
             delay(10);
     }
@@ -29,13 +29,20 @@ void LightSensor::setup()
 
     if (!getLocalTime(&_timeinfo))
     {
-        Serial.println("Failed to obtain time");
-        return;
+        configTime(_gmtOffset_sec, _daylightOffset_sec, "pool.ntp.org");
+        if (!getLocalTime(&_timeinfo))
+        {
+             Serial.println("Failed to obtain time");
+             return;
+        }
+       
+        
     }
 
     Serial.println("Time variables");
-    _currentDay = readDay();
-    _currentHours = readhour();
+    delay(1000);
+    _savedDay = readDay();
+    _lastHours = readhour();
 }
 
 void LightSensor::handelSensor()
@@ -61,7 +68,17 @@ bool LightSensor::getSendData()
     return _isSendData;
 }
 
-lightData_t LightSensor::getLightData()
+void LightSensor::setSendData(bool send)
+{
+    _isSendData = send;
+    if (!_isSendData)
+    {
+        _lightHours.lampLightHours = 0;
+        _lightHours.sunLightHours = 0;
+    }
+}
+
+light_data_t LightSensor::getLightData()
 {
     return _lightHours;
 }
@@ -207,10 +224,15 @@ void LightSensor::readSensor()
             }
         }
     }
-    Serial.print("ch0 are: ");
-    Serial.print(_visible_plus_ir);
-    Serial.print("  ch1 are: ");
-    Serial.println(_infrared);
+    // Serial.print("ch0 are: ");
+    // Serial.print(_visible_plus_ir);
+    // Serial.print("  ch1 are: ");
+    // Serial.println(_infrared);
+}
+
+bool LightSensor::getIsAlarm()
+{
+    return _isAlarm;
 }
 
 double LightSensor::getLux()
@@ -238,23 +260,32 @@ void LightSensor::handelSunlightLogging()
     }
 
     int hours = readhour();
-    // add to values if light changes, its same day still and its passed SUN_UP_HOUR
-    if (_isCurrentSun != isSunny() && _currentDay == readDay() && _currentHours >= SUN_UP_HOUR)
+    if (!_isCurrentSun &&
+        state == GROW &&
+        _lightHours.totalHours() + (_lastHours - hours) >= MIN_LIGH_HOURS &&
+        !isSunny())
+    {
+        _lightHours.lampLightHours = _lastHours - hours;
+        _lastHours = hours;
+    }
+
+    else if (_isCurrentSun != isSunny() &&
+             _savedDay == readDay() &&
+             _lastHours >= SUN_UP_HOUR)
     {
         calculateTotalLight(hours);
     }
-    else if (_currentDay != readDay())
+    else if (_savedDay != readDay())
     {
         _isSendData = true;
-        // TODO reset values
-        //  TODO: send data?
-        _currentDay = readDay();
+
+        _savedDay = readDay();
     }
 
-    if (isSunny() || _isSendData)
-        _rgb.setState(NORMAL);
-    else
+    if (!isSunny() && _lastHours >= SUN_UP_HOUR && _lightHours.totalHours() < MIN_LIGH_HOURS)
         _rgb.setState(GROW);
+    else
+        _rgb.setState(NORMAL);
 }
 
 void LightSensor::calculateLux()
@@ -292,28 +323,27 @@ void LightSensor::calculateLux()
 
 void LightSensor::calculateTotalLight(int hours)
 {
-    if (_lightHours.totalHours() >= MIN_LIGH_HOURS)
+
+    if (_lightHours.totalHours() >= MIN_LIGH_HOURS && !isSunny())
     {
-        _isSendData = true;
+        return;
     }
     else if (_isCurrentSun)
     {
-        if (_currentHours < hours)
+        if (_lastHours < hours)
         {
-            _lightHours.sunLightHours += hours - _currentHours;
-            _currentHours = hours;
+            _lightHours.sunLightHours += hours - _lastHours;
+            _lastHours = hours;
             _isCurrentSun = isSunny();
         }
     }
     else
     {
-        if (_currentHours < hours)
+        if (_lastHours < hours)
         {
-            _lightHours.lampLightHours += hours - _currentHours;
-            _currentHours = hours;
+            _lightHours.lampLightHours += hours - _lastHours;
+            _lastHours = hours;
             _isCurrentSun = isSunny();
         }
     }
-
-    
 }

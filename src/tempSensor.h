@@ -1,7 +1,7 @@
 #ifndef TEMPSENSOR_H
 #define TEMPSENSOR_H
 #include <Adafruit_SHT31.h>
-
+#include "arduino_secrets.h"
 #include "rgbColor.h"
 
 class TempSensor
@@ -11,6 +11,7 @@ public:
     TempSensor(RgbColor &colorController);
     void setup();
     void handelSensor();
+    bool getIsAlarm();
     float getTemp();
     float getHumidity();
     bool getIsHeaterOn();

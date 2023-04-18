@@ -24,21 +24,26 @@ void RgbColor::setColor(Color color)
     switch (color)
     {
     case RED: // ALARM LIGHT
+    Serial.println("alarm");
         _strip.setPixelColor(0, 255, 0, 0);
+         _strip.show();
         break;
     case YELLOW: // GROW LIGTH
         _strip.setPixelColor(0, 255, 255, 0);
+         _strip.show();
         break;
     case BLUE: // FIND ME LIGHT
         _strip.setPixelColor(0, 0, 0, 255);
+         _strip.show();
         break;
     case GREEN: // ALL OK LIGTH
         _strip.setPixelColor(0, 0, 255, 0);
+         _strip.show();
         break;
     default:
         break;
     }
-    _strip.show();
+   
 }
 
 void RgbColor::resetColor()
@@ -65,7 +70,7 @@ void RgbColor::setState(ColorState state)
         _state = state;
         break;
     case NORMAL:
-        if (state == ALARMOFF)
+        if (state == ALARM)
             break;
         else
         {

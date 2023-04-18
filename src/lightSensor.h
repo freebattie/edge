@@ -15,7 +15,9 @@ public:
     void setLuxLevel(int lux);
     void setMinHours(int hours);
     bool getSendData();
-    lightData_t getLightData();
+    void setSendData(bool send);
+    light_data_t getLightData();
+    double getLux();
     
 
 private:
@@ -24,7 +26,8 @@ private:
     int readDay();
     int readhour();
     void readSensor();
-    double getLux();
+    bool getIsAlarm();
+    
     bool isSunny();
     void handelSunlightLogging();
     void calculateLux();
@@ -37,7 +40,7 @@ private:
     int _minHours;
     double _ch0, _ch1, ratio, _lux;
     bool _valid = false;
-    const char *_ntpServer = "pool.ntp.org";
+    const char *_ntpServer = "0.no.pool.ntp.org";
     const long _gmtOffset_sec = 3600;
     const int _daylightOffset_sec = 3600;
     struct tm _timeinfo;
@@ -45,11 +48,12 @@ private:
     char _getHour[3];
     //char _currentDay[3];
     //char _currentHour[3];
-    lightData_t _lightHours;
-    int _currentDay;
-    int _currentHours;
+    light_data_t _lightHours;
+    int _savedDay;
+    int _lastHours;
     bool _isCurrentSun;
     bool _isSendData = false;
+    bool _isAlarm = false;
 
 };
 #endif

@@ -11,6 +11,7 @@ void TempSensor::setup()
     {
         _isTempAlarm = true;
         Serial.println("Couldn't find SHT31");
+        _rgb.setState(ALARM);
         while (1)
             delay(1);
     }
@@ -24,17 +25,19 @@ void TempSensor::handelSensor()
     readTemp();
     readHumidity();
 
-    
     if (_isTempAlarm || _isHeaterFailure || _isHumidtyAlarm)
     {
         _isAlarmSet = true;
-        _rgb.setState(ALARM);
     }
     else if (_isAlarmSet)
     {
         _isAlarmSet = false;
-        _rgb.setState(ALARMOFF);
     }
+}
+
+bool TempSensor::getIsAlarm()
+{
+    return _isAlarmSet;
 }
 
 float TempSensor::getTemp()
@@ -74,11 +77,15 @@ bool TempSensor::checkForHeaterFailure(int temp)
 
 void TempSensor::readTemp()
 {
-    float temp = _sht31.readTemperature();
+    float temp = _sht31.readTemperature() + OFFSET_TEMP;
     if (!isnan(temp))
     { // check if 'is not a number'
         _isTempAlarm = false;
         _currentTemp = temp;
+        if (_currentTemp < HEATER_FAILURE_TEMP + 2)
+            setIsHeaterOn(true);
+        else
+            setIsHeaterOn(false);
     }
     else
     {
@@ -96,7 +103,7 @@ void TempSensor::readHeater()
 
 void TempSensor::readHumidity()
 {
-    float humid = _sht31.readHumidity();
+    float humid = _sht31.readHumidity() + OFFSET_HUMIDITY;
     if (!isnan(humid))
     { // check if 'is not a number'
         _isHumidtyAlarm = false;

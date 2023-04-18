@@ -34,21 +34,22 @@ void Ota::connectWiFi(String ssid, String pass)
         {
             WiFi.begin(ssid.c_str(), pass.c_str());
             Serial.println("Connecting...");
+            _isConAlarm = true;
         }
         else
         {
             setupTimer.stop();
             Serial.println("Connected to WIFI");
+             _isConAlarm = false;
         }
 
         delay(200);
     }
     setupTimer.stop();
 }
-void Ota::update(String build,int version)
+void Ota::update(profile_t profile)
 {
-    if (_Currentversion == version)
-        return;
+    
         
     WiFiClient wifiClient; // HTTP
 
@@ -59,7 +60,7 @@ void Ota::update(String build,int version)
     HTTPClient client; // HTTP
 
     char buff[32];
-    snprintf(buff, sizeof(buff), PATH, version);
+    snprintf(buff, sizeof(buff), PATH, profile.build,profile.build,profile.fw);
 
     Serial.print("Check for update file ");
     Serial.println(buff);
@@ -128,4 +129,9 @@ void Ota::update(String build,int version)
     Serial.println("Sketch update apply and reset.");
     Serial.flush();
     InternalStorage.apply(); // this doesn't return
+}
+
+bool Ota::getIsDissconnected()
+{
+    return _isConAlarm;
 }

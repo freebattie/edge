@@ -26,11 +26,11 @@ void Storage::start()
     Serial.println("saving default");
     
     _profileSave.deviceName = NAME;
-    _profileSave.location = "";
-    _profileSave.city= "Oslo";
+    _profileSave.location = "test";
+    _profileSave.city= "Stavanger";
     _profileSave.mqtt_pass = MQTT_PASSWORD;
     _profileSave.mqtt_username=NAME;
-    _profileSave.fw="fw-dev-update-v1.bin";
+    _profileSave.fw= 0;
     _profileSave.build= FW_BUILD;
     Serial.print("started? ");
     Serial.println(started);
@@ -74,6 +74,7 @@ bool Storage::isRoom()
     if (0 == schLen || schLen % sizeof(profile_t) || schLen > sizeof(_profileSave))
     {
         Serial.printf("Invalid size of schedule array: %zu\n", schLen);
+        
         return false;
     }
     return true;

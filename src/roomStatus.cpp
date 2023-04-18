@@ -12,12 +12,14 @@ void RoomStatus::setup()
     if (!_lis.begin(0x18))
     { // change this to 0x19 for alternative i2c address
 
-        Serial.println("Couldnt start");
+        Serial.println("Couldnt start acc sensor");
         _rgb.setState(ALARM);
         while (1)
             yield();
     }
-    _rgb.setState(ALARMOFF);
+    
+    _rgb.handelLight();
+    delay(2000);
     _lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!
     // Adjust how often the board should read the sensor with this command
     _lis.setDataRate(LIS3DH_DATARATE_100_HZ);
@@ -36,10 +38,9 @@ void RoomStatus::setup()
 
 void RoomStatus::handelSensors()
 {
-    
+
     readWindowAngelSensor();
     readDoorSensor();
-   
 }
 
 float RoomStatus::getWindowAngel()
@@ -49,12 +50,17 @@ float RoomStatus::getWindowAngel()
 
 bool RoomStatus::getIsWindowOpen()
 {
+    Serial.print("window angel");
+    Serial.println(_windowAngel);
+    if (_windowAngel > 3)
+        return true;
+
     return false;
 }
 
 bool RoomStatus::getIsDoorOpen()
 {
-   
+
     return _isDoorOpen;
 }
 
@@ -62,10 +68,10 @@ void RoomStatus::readWindowAngelSensor()
 {
     _lis.read();
     _lis.getEvent(&_event);
-    _windowAngel = _event.acceleration.x  * (90.0/10);
+    _windowAngel = _event.acceleration.x * (float)((float)90.0 / (float)10);
 }
 
 void RoomStatus::readDoorSensor()
 {
-      _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
+    _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
 }

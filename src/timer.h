@@ -6,7 +6,6 @@
 #include <Wire.h>
 #include "enum.h"
 
-
 class Timer
 {
 public:
@@ -17,12 +16,13 @@ public:
     void setInterval(int interval);
     status_t checkInterval();
     void reset();
+
 private:
     resolution_t _resolution;
     uint32_t _started;
     uint32_t _current;
     uint32_t _prev;
-    int _interval;
+    uint32_t _interval;
     bool _is_stopped = false;
 };
 #endif

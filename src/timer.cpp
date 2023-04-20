@@ -2,24 +2,23 @@
 #include "Arduino.h"
 #include "timer.h"
 
-Timer::Timer(resolution_t resolution )
+Timer::Timer(resolution_t resolution)
 {
     _resolution = MILLIS;
 }
 void Timer::start()
 {
-    if (_resolution == MILLIS){
-         _started = millis();
-         _prev = millis();
-
+    if (_resolution == MILLIS)
+    {
+        _started = millis();
+        _prev = millis();
     }
-       
-    if (_resolution == MICROS){
+
+    if (_resolution == MICROS)
+    {
         _started = micros();
         _prev = micros();
     }
-       
-        
 }
 
 uint32_t Timer::readElaspedTime()
@@ -29,9 +28,11 @@ uint32_t Timer::readElaspedTime()
     if (_resolution == MICROS)
         return micros() - _started;
 
-        else return 0;
+    else
+        return 0;
 }
-void Timer::stop(){
+void Timer::stop()
+{
     _is_stopped = true;
 }
 void Timer::setInterval(int interval)
@@ -40,7 +41,8 @@ void Timer::setInterval(int interval)
 }
 status_t Timer::checkInterval()
 {
-    if(_is_stopped) return STOPPED;
+    if (_is_stopped)
+        return STOPPED;
     if (_resolution == MILLIS)
         _current = millis();
     if (_resolution == MICROS)
@@ -48,14 +50,13 @@ status_t Timer::checkInterval()
 
     if (_current - _prev > _interval)
     {
-        
+
         return RUNCODE;
-       
     }
     return RUNNING;
 }
 
 void Timer::reset()
 {
-     _prev = _current;
+    _prev = millis();
 }

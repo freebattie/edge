@@ -5,9 +5,6 @@ profile_t _profileLoad;
 Storage::Storage()
 {
     _prefs = Preferences();
-   
-   
-   
 }
 Storage::~Storage()
 {
@@ -21,24 +18,24 @@ void Storage::load()
 void Storage::start()
 {
     bool started = _prefs.begin("my-app", false); // use "my-app" namespace
-   if (!_prefs.isKey("profile"))
-   {
-    Serial.println("saving default");
-    
-    _profileSave.deviceName = NAME;
-    _profileSave.location = "test";
-    _profileSave.city= "Stavanger";
-    _profileSave.mqtt_pass = MQTT_PASSWORD;
-    _profileSave.mqtt_username=NAME;
-    _profileSave.fw= 0;
-    _profileSave.build= FW_BUILD;
-    Serial.print("started? ");
-    Serial.println(started);
-    size_t size = _prefs.putBytes("profile", &_profileSave, sizeof(_profileSave));
-    Serial.print("size? ");
-    Serial.println(size);
-   }
-   load();
+    if (!_prefs.isKey("profile"))
+    {
+        Serial.println("saving default");
+
+        _profileSave.deviceName = NAME;
+        _profileSave.location = "test";
+        _profileSave.city = "Stavanger";
+        _profileSave.mqtt_pass = MQTT_PASSWORD;
+        _profileSave.mqtt_username = NAME;
+        _profileSave.fw = 0;
+        _profileSave.build = FW_BUILD;
+        Serial.print("started? ");
+        Serial.println(started);
+        size_t size = _prefs.putBytes("profile", &_profileSave, sizeof(_profileSave));
+        Serial.print("size? ");
+        Serial.println(size);
+    }
+    load();
 }
 profile_t Storage::getProfile()
 {
@@ -49,7 +46,7 @@ profile_t Storage::getProfile()
 void Storage::saveProfile(profile_t profile)
 {
     _profileSave = profile;
-    
+
     save();
 }
 void Storage::save()
@@ -74,7 +71,7 @@ bool Storage::isRoom()
     if (0 == schLen || schLen % sizeof(profile_t) || schLen > sizeof(_profileSave))
     {
         Serial.printf("Invalid size of schedule array: %zu\n", schLen);
-        
+
         return false;
     }
     return true;

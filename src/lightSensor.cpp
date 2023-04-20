@@ -12,7 +12,7 @@ void LightSensor::setup()
     if (!_ltr.begin())
     {
         Serial.println("Couldn't find LTR sensor!");
-         _rgb.setState(ALARM);
+        _rgb.setState(ALARM);
         while (1)
             delay(10);
     }
@@ -32,11 +32,9 @@ void LightSensor::setup()
         configTime(_gmtOffset_sec, _daylightOffset_sec, "pool.ntp.org");
         if (!getLocalTime(&_timeinfo))
         {
-             Serial.println("Failed to obtain time");
-             return;
+            Serial.println("Failed to obtain time");
+            return;
         }
-       
-        
     }
 
     Serial.println("Time variables");
@@ -249,8 +247,8 @@ bool LightSensor::isSunny()
 void LightSensor::handelSunlightLogging()
 {
     int hours = readhour();
-    if(_lastHours <= hours)
-    return;
+    if (_lastHours <= hours)
+        return;
     ColorState state = _rgb.getState();
     if (state == GROW)
     {
@@ -262,7 +260,6 @@ void LightSensor::handelSunlightLogging()
         }
     }
 
-    
     if (!_isCurrentSun &&
         state == GROW &&
         _lightHours.totalHours() + (_lastHours - hours) >= MIN_LIGH_HOURS &&

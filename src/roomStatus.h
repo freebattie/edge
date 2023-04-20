@@ -27,6 +27,5 @@ private:
     float _windowAngel = 0; // 0 closed 90 all the way open
     float _windowOffsett = 0;
     unsigned long _startTimer;
-    
 };
 #endif

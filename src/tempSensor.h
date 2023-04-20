@@ -22,7 +22,7 @@ private:
     void readTemp();
     void readHeater();
     void readHumidity();
-   
+
     Adafruit_SHT31 _sht31 = NULL;
     RgbColor &_rgb;
     float _currentTemp;
@@ -30,7 +30,7 @@ private:
     bool _isHeaterOn = false;
     bool _isTempAlarm = false;
     bool _isHumidtyAlarm = false;
-    bool _isHeaterFailure= false;
+    bool _isHeaterFailure = false;
     bool _isAlarmSet = false;
 };
 #endif

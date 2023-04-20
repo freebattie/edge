@@ -7,8 +7,6 @@
 #include "arduino_secrets.h"
 #include "struct.h"
 
-
-
 class Storage
 {
 public:
@@ -22,6 +20,5 @@ public:
     void saveProfile(profile_t profile);
 
 private:
-    
 };
 #endif

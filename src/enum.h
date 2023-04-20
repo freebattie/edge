@@ -18,7 +18,13 @@ enum ColorState
     GROW,
     GROWOFF
 };
-enum status_t {STOPPED, RUNNING, PAUSED,RUNCODE};
+enum status_t
+{
+    STOPPED,
+    RUNNING,
+    PAUSED,
+    RUNCODE
+};
 enum resolution_t
 {
     MICROS,

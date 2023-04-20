@@ -132,9 +132,11 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     _profile.location = doc["location"].as<String>();
     _profile.city = doc["city"].as<String>();
     int fw = doc["fw"].as<int>();
+    _profile.isAutoUpdateOn = doc["auto"].as<bool>();
     String build = doc["build"].as<String>();
     if (fw != _profile.fw || build != _profile.build)
     {
+        Serial.println("changing fw..");
         _profile.fw = fw;
         _isDownload = true;
         _profile.build = build;
@@ -143,7 +145,7 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     //{"deviceName": "name", "location": "location2", "build" : "dev", "city": "oslo", "fw":"1","auto":"true"} ;
     _storeProfile.saveProfile(_profile);
     profile_t _profile = _storeProfile.getProfile();
-    Serial.println(_profile.deviceName);
+    Serial.println(_profile.city);
     _isUpdateProfile = true;
 }
 
@@ -153,6 +155,9 @@ void Mqtt::onMqttConnect(bool sessionPresent)
     StaticJsonDocument<256> doc;
 
     doc["deviceName"] = _profile.deviceName;
+    doc["fw"] = _profile.fw;
+    doc["location"] = _profile.location;
+    doc["build"] = _profile.build;
 
     String msg;
     serializeJson(doc, msg);
@@ -217,8 +222,7 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
     DeserializationError error = deserializeJson(doc, payload);
     const char *deviceTopic = _profile.deviceName.c_str();
     char deviceSetupTopic[32];
-
-    // snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVw, deviceTopic);
+    snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVICE_SETUP_PROFILE_TOPIC, deviceTopic);
 
     if (error)
     {

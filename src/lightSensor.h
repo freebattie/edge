@@ -18,7 +18,6 @@ public:
     void setSendData(bool send);
     light_data_t getLightData();
     double getLux();
-    
 
 private:
     void setNoise(uint16_t ch0, uint16_t ch1);
@@ -27,7 +26,7 @@ private:
     int readhour();
     void readSensor();
     bool getIsAlarm();
-    
+
     bool isSunny();
     void handelSunlightLogging();
     void calculateLux();
@@ -46,14 +45,13 @@ private:
     struct tm _timeinfo;
     char _getDay[3];
     char _getHour[3];
-    //char _currentDay[3];
-    //char _currentHour[3];
+    // char _currentDay[3];
+    // char _currentHour[3];
     light_data_t _lightHours;
     int _savedDay;
     int _lastHours;
     bool _isCurrentSun;
     bool _isSendData = false;
     bool _isAlarm = false;
-
 };
 #endif

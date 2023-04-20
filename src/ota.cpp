@@ -21,7 +21,7 @@ void Ota::connectWiFi(String ssid, String pass)
     setupTimer.start();
     while (setupTimer.checkInterval() != RUNCODE && setupTimer.checkInterval() != STOPPED)
     {
-        
+
         if (setupTimer.readElaspedTime() > 10000)
         {
             setupTimer.stop();
@@ -40,7 +40,7 @@ void Ota::connectWiFi(String ssid, String pass)
         {
             setupTimer.stop();
             Serial.println("Connected to WIFI");
-             _isConAlarm = false;
+            _isConAlarm = false;
         }
 
         delay(200);
@@ -49,8 +49,7 @@ void Ota::connectWiFi(String ssid, String pass)
 }
 void Ota::update(profile_t profile)
 {
-    
-        
+
     WiFiClient wifiClient; // HTTP
 
     Serial.println("Connecting to http server");
@@ -60,7 +59,7 @@ void Ota::update(profile_t profile)
     HTTPClient client; // HTTP
 
     char buff[32];
-    snprintf(buff, sizeof(buff), PATH, profile.build,profile.build,profile.fw);
+    snprintf(buff, sizeof(buff), PATH, profile.build, profile.build, profile.fw);
 
     Serial.print("Check for update file ");
     Serial.println(buff);

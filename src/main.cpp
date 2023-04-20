@@ -24,6 +24,7 @@ Adafruit_DotStar strip = Adafruit_DotStar(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_
 
 Timer wifiTimer = Timer();
 Timer mqttTimer = Timer();
+Timer apiWeatherTimer = Timer();
 Timer mqttIntervall = Timer();
 Ota wifiOta = Ota();
 Mqtt mqttClient = Mqtt();
@@ -73,10 +74,13 @@ void setup()
   Serial.println("SETUP DONE");
   Serial.println(profile.city);
   lastFlags.isLogging = store.getProfile().location.length() > 0;
+  int weathertimer;
+  int senddataTimer;
 }
 
 void loop()
 {
+
   handelConnections();
   rgb.handelLight();
   tempSensor.handelSensor();
@@ -84,34 +88,38 @@ void loop()
   rgb.handelLight();
   lux.handelSensor();
 
-  if (lastFlags.isLogging)
+  if (lastFlags.isLogging || currentFlags.isLogging)
   {
     handelData();
   }
-  handelDownloadFW();
+
   handelProfileUpdate();
+  handelDownloadFW();
   handelDeviceAlarm();
   handelFindMe();
   delay(400);
 }
 
 #pragma region Methods
-void handelFindMe(){
+void handelFindMe()
+{
   if (mqttClient.getIsFindMe())
   {
     oldState = rgb.getState();
     rgb.setState(FIND);
   }
-  else{
-    rgb.setState(oldState != FIND?oldState:FINDOFF );
+  else
+  {
+    rgb.setState(oldState != FIND ? oldState : FINDOFF);
   }
-  
 }
-void handelProfileUpdate(){
-if (mqttClient.isUpdateProfile())
+void handelProfileUpdate()
+{
+  if (mqttClient.isUpdateProfile())
   {
     profile = store.getProfile();
     mqttClient.setIsUpdateProfile(false);
+    currentFlags.isLogging = profile.location.length() > 0;
   }
 }
 void handelDownloadFW()
@@ -185,39 +193,43 @@ void readLiveSensorValues()
   currentFlags.isLowTempWarning = isAlarmLimitReached(temp, TEMP_L_WARN, false);
 
   currentFlags.isWindowOpen = room.getIsWindowOpen();
-  lastFlags.isWindowOpenAlarm = false; // TODO GET WEATHER AND REOPRT
+
   currentFlags.isLogging = store.getProfile().location.length() > 0;
 
-  String buffer = GetWeather();
-  StaticJsonDocument<256> doc;
-  deserializeJson(doc, buffer);
+  if (apiWeatherTimer.checkInterval() == RUNCODE)
+  {
+    apiWeatherTimer.reset();
+    String buffer = GetWeather();
+    StaticJsonDocument<256> doc;
+    deserializeJson(doc, buffer);
 
-  int outsideTemp = doc["main"]["temp"];
-  String sky = doc["weather"]["main"];
+    int outsideTemp = doc["main"]["temp"];
+    String sky = doc["weather"]["main"];
 
-  if (outsideTemp < HEATER_FAILURE_TEMP && currentFlags.isWindowOpen)
-  {
-    currentFlags.isWindowOpenAlarm = true;
-  }
-  else
-  {
-    currentFlags.isWindowOpenAlarm = false;
-  }
+    if (outsideTemp < HEATER_FAILURE_TEMP && currentFlags.isWindowOpen)
+    {
+      currentFlags.isWindowOpenAlarm = true;
+    }
+    else
+    {
+      currentFlags.isWindowOpenAlarm = false;
+    }
 
-  if (outsideTemp > HEATER_FAILURE_TEMP && sky == "Clear")
-  {
-    currentFlags.isWindowClosedAndHotOutside = true;
-  }
-  else
-  {
-    currentFlags.isWindowClosedAndHotOutside = false;
+    if (outsideTemp > HEATER_FAILURE_TEMP && sky == "Clear")
+    {
+      currentFlags.isWindowClosedAndHotOutside = true;
+    }
+    else
+    {
+      currentFlags.isWindowClosedAndHotOutside = false;
+    }
   }
 
   // TODO: CALL WEATHER API AND GET WEATHER
 }
 String GetWeather()
 {
-  char url_path[32];
+  char url_path[120];
   snprintf(url_path, sizeof(url_path), URL, profile.city, WEATHER_API_KEY);
   HTTPClient http;
 
@@ -334,6 +346,8 @@ void handelTransmittingBoolState()
 void setupTimers()
 {
   mqttIntervall.setInterval(1000);
+  apiWeatherTimer.setInterval(10000);
+  apiWeatherTimer.start();
   mqttIntervall.start();
   wifiTimer.setInterval(5000);
   wifiTimer.start();

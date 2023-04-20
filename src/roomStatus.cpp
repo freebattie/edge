@@ -17,7 +17,7 @@ void RoomStatus::setup()
         while (1)
             yield();
     }
-    
+
     _rgb.handelLight();
     delay(2000);
     _lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!

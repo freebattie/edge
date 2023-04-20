@@ -2,7 +2,6 @@
 
 RgbColor::RgbColor(Adafruit_DotStar &strip) : _strip(strip)
 {
-    
 }
 
 RgbColor::RgbColor(Adafruit_DotStar &strip, int brightness, Color defaultColor) : _strip(strip)
@@ -24,26 +23,25 @@ void RgbColor::setColor(Color color)
     switch (color)
     {
     case RED: // ALARM LIGHT
-    Serial.println("alarm");
+        Serial.println("alarm");
         _strip.setPixelColor(0, 255, 0, 0);
-         _strip.show();
+        _strip.show();
         break;
     case YELLOW: // GROW LIGTH
         _strip.setPixelColor(0, 255, 255, 0);
-         _strip.show();
+        _strip.show();
         break;
     case BLUE: // FIND ME LIGHT
         _strip.setPixelColor(0, 0, 0, 255);
-         _strip.show();
+        _strip.show();
         break;
     case GREEN: // ALL OK LIGTH
         _strip.setPixelColor(0, 0, 255, 0);
-         _strip.show();
+        _strip.show();
         break;
     default:
         break;
     }
-   
 }
 
 void RgbColor::resetColor()

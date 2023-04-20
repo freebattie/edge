@@ -53,9 +53,6 @@ typedef struct
     bool isFindMe;
 } sensor_flag_t;
 
-
-
-
 typedef struct
 {
     bool alarmsNO;

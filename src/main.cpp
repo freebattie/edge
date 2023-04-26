@@ -162,7 +162,7 @@ void handelData()
       doc["lamplight"] = data.lampLightHours;
       doc["total"] = data.totalHours();
       serializeJson(doc, msg);
-      mqttClient.publish(profile.location + "/light", msg);
+      mqttClient.publish("locations/" + profile.location + "/light", msg);
       lux.setSendData(false);
     }
   }
@@ -266,7 +266,7 @@ bool transmittGivenValueOnChange(bool oldVal, bool newVal, String type, String n
     doc["status"] = newVal;
 
     serializeJson(doc, msg);
-    mqttClient.publish(profile.location + "/alarm", msg);
+    mqttClient.publish("locations/" + profile.location + "/alarm", msg);
     delay(ON_CHANGE_SPACING);
     doc.clear();
     return newVal;
@@ -332,7 +332,7 @@ void transmittLiveValues()
   doc["temp"] = liveValues.temp;
   doc["humidity"] = liveValues.humidity;
   serializeJson(doc, msg);
-  mqttClient.publish(profile.location + "/live", msg);
+  mqttClient.publish("locations/" + profile.location + "/live", msg);
 
   doc.clear();
 }

@@ -1,10 +1,15 @@
 #define NAME "edge-01"
+#define DEVICETOPIC "devices/" + NAME
 #define SECRET_SSID "Get-2G-72E32C"
 #define SECRET_PASS "Tananger22"
 // #define HTTP_SERVER "172.20.10.8"
 // #define MQTT_HOST IPAddress(172, 20, 10, 8)
 #define HTTP_SERVER "192.168.0.106"
 #define MQTT_HOST IPAddress(192, 168, 0, 106)
+
+// #define HTTP_SERVER "172.26.116.75"
+// #define MQTT_HOST IPAddress(172, 26, 116, 75)
+
 #define HTTP_PORT 3000
 
 #define MQTT_PORT 4000

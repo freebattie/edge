@@ -45,6 +45,7 @@ private:
     static const char *UPDATE_TOPIC;
     static const char *LOCATION_ALARM_TOPIC; //{name: "heater/heater failure/door",type: "warning/alarm/status", status: true/false}
     static const char *LOCATION_LOGGING_TOPIC;
+    static const char *LOCATIONS_UPDATE;
 
     static bool _isUpdateProfile;
     static bool _isDownload;

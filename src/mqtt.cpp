@@ -2,11 +2,12 @@
 
 #pragma region member definition
 const char *Mqtt::DEVICES = "devices";
-const char *Mqtt::DEVICE = NAME;
-const char *Mqtt::DEVICE_SETUP_PROFILE_TOPIC = "%s/profile"; // get Profile from server and save it?
+const char *Mqtt::DEVICE = "devices/%s";
+const char *Mqtt::DEVICE_SETUP_PROFILE_TOPIC = "devices/%s/profile"; // get Profile from server and save it?
 const char *Mqtt::UPDATE_TOPIC = "update";
-const char *Mqtt::LOCATION_ALARM_TOPIC = "%s/alarm";
-const char *Mqtt::LOCATION_LOGGING_TOPIC = "%s/logging";
+const char *Mqtt::LOCATIONS_UPDATE = "locations/update";
+const char *Mqtt::LOCATION_ALARM_TOPIC = "locations/%s/alarm";
+const char *Mqtt::LOCATION_LOGGING_TOPIC = "locations/%s/logging";
 // const char *Mqtt::SETUP_ALARM_PATH = "setup/Levels";    // alarm/warining level float
 // const char *Mqtt::SETUP_RUN_CAL_PATH = "setup/cal/run"; // run logging nosie/elevator/normal
 
@@ -71,6 +72,7 @@ void Mqtt::setup()
     _mqttClient.onPublish(onMqttPublish);
     _mqttClient.setClientId(_profile.deviceName.c_str());
     _mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+    _mqttClient.setKeepAlive(120);
 
     Serial.println("SETUP DONE MQTT");
 }
@@ -130,23 +132,39 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
 
     _profile.deviceName = doc["deviceName"].as<String>();
     _profile.location = doc["location"].as<String>();
+    Serial.println("connected to MQTT SERVER ");
+
     _profile.city = doc["city"].as<String>();
     int fw = doc["fw"].as<int>();
     _profile.isAutoUpdateOn = doc["auto"].as<bool>();
     String build = doc["build"].as<String>();
-    if (fw != _profile.fw || build != _profile.build)
+    if (_profile.isAutoUpdateOn)
+    {
+        // GET FW FOR YOUR BUILD
+        // DOWNLAOD NEW  FW IF THERE IS NEW
+    }
+    else if (fw != _profile.fw || build != _profile.build)
     {
         Serial.println("changing fw..");
         _profile.fw = fw;
         _isDownload = true;
         _profile.build = build;
     }
-    _profile.isAutoUpdateOn = doc["auto"].as<bool>();
+
     //{"deviceName": "name", "location": "location2", "build" : "dev", "city": "oslo", "fw":"1","auto":"true"} ;
     _storeProfile.saveProfile(_profile);
     profile_t _profile = _storeProfile.getProfile();
     Serial.println(_profile.city);
     _isUpdateProfile = true;
+
+    // update city for new location
+    StaticJsonDocument<256> docSend;
+    docSend["location"] = _profile.location;
+    docSend["device"] = _profile.deviceName;
+    String msg;
+    serializeJson(docSend, msg);
+
+    _mqttClient.publish("devices", 1, false, msg.c_str());
 }
 
 void Mqtt::onMqttConnect(bool sessionPresent)
@@ -163,9 +181,13 @@ void Mqtt::onMqttConnect(bool sessionPresent)
     serializeJson(doc, msg);
     _mqttClient.publish("devices", 1, false, msg.c_str());
     doc.clear();
-    const char *deviceTopic = _profile.deviceName.c_str();
-    char deviceSetupTopic[32];
-    snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVICE_SETUP_PROFILE_TOPIC, deviceTopic);
+    const char *deviceName = _profile.deviceName.c_str();
+
+    char deviceSetupTopic[32]; // devices/:name/profile
+    snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVICE_SETUP_PROFILE_TOPIC, deviceName);
+
+    char deviceTopic[32]; // devices/:name
+    snprintf(deviceTopic, sizeof(deviceTopic), DEVICE, deviceName);
 
     if (_profile.location.length() > 1)
     {
@@ -220,9 +242,12 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
 
     StaticJsonDocument<600> doc;
     DeserializationError error = deserializeJson(doc, payload);
-    const char *deviceTopic = _profile.deviceName.c_str();
-    char deviceSetupTopic[32];
-    snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVICE_SETUP_PROFILE_TOPIC, deviceTopic);
+    const char *deviceName = _profile.deviceName.c_str();
+    char deviceSetupTopic[32]; // devices/:name/profile
+    snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVICE_SETUP_PROFILE_TOPIC, deviceName);
+
+    char deviceTopic[32]; // devices/:name
+    snprintf(deviceTopic, sizeof(deviceTopic), DEVICE, deviceName);
 
     if (error)
     {
@@ -230,26 +255,37 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
         Serial.println(error.c_str());
         return;
     }
-    if (strcmp(topic, DEVICE) == 0)
+    if (strcmp(topic, LOCATIONS_UPDATE))
     {
-        _profile.mqtt_pass = doc["password"].as<String>();
+        String device = doc["device"];
+        if (device == _profile.deviceName)
+        {
+            _profile.city = doc["city"].as<String>();
+        }
+        }
+    else if (strcmp(topic, deviceTopic) == 0)
+    {
+        /*  _profile.mqtt_pass = doc["password"].as<String>(); */
         _isFindMe = doc["findMe"];
-        _mqttClient.disconnect(true);
-        _mqttClient.connect();
     }
     else if (strcmp(topic, deviceSetupTopic) == 0)
     {
         Serial.println("Updating profile");
 
-        if (_profile.location.length() > 1)
+        if (_profile.location.length() > 0)
         {
             const char *deviceLocation = _profile.location.c_str();
-            char deviceLocationAlarm[32];
-            snprintf(deviceLocationAlarm, sizeof(deviceLocationAlarm), LOCATION_ALARM_TOPIC, deviceLocation);
-            _mqttClient.unsubscribe(deviceLocationAlarm);
-            char deviceLocationLogging[32];
-            snprintf(deviceLocationLogging, sizeof(deviceLocationLogging), LOCATION_LOGGING_TOPIC, deviceLocation);
-            _mqttClient.unsubscribe(deviceLocationLogging);
+            char deviceLocationAlarmTopic[32]; // locations/:location/alarm
+            snprintf(deviceLocationAlarmTopic, sizeof(deviceLocationAlarmTopic), LOCATION_ALARM_TOPIC, deviceLocation);
+            _mqttClient.unsubscribe(deviceLocationAlarmTopic);
+            char deviceLocationLoggingTopic[32]; // locations/:location/logging
+            snprintf(deviceLocationLoggingTopic, sizeof(deviceLocationLoggingTopic), LOCATION_LOGGING_TOPIC, deviceLocation);
+            _mqttClient.unsubscribe(deviceLocationLoggingTopic);
+
+            char deviceLocationLiveTopic[32]; // locations/:location/live
+            snprintf(deviceLocationLiveTopic, sizeof(deviceLocationLiveTopic), LOCATION_LOGGING_TOPIC, deviceLocation);
+            _mqttClient.unsubscribe(deviceLocationLiveTopic);
+
             Serial.println("removed old location");
         }
 
@@ -258,12 +294,15 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
         if (_profile.location.length() > 1)
         {
             const char *deviceLocation = _profile.location.c_str();
-            char deviceLocationAlarm[32];
-            snprintf(deviceLocationAlarm, sizeof(deviceLocationAlarm), LOCATION_ALARM_TOPIC, deviceLocation);
-            _mqttClient.subscribe(deviceLocationAlarm, 1);
-            char deviceLocationLogging[32];
-            snprintf(deviceLocationLogging, sizeof(deviceLocationLogging), LOCATION_LOGGING_TOPIC, deviceLocation);
-            _mqttClient.subscribe(deviceLocationLogging, 1);
+            char deviceLocationAlarmTopic[32]; // locations/:location/alarm
+            snprintf(deviceLocationAlarmTopic, sizeof(deviceLocationAlarmTopic), LOCATION_ALARM_TOPIC, deviceLocation);
+            _mqttClient.subscribe(deviceLocationAlarmTopic, 1);
+            char deviceLocationLoggingTopic[32]; // locations/:location/logging
+            snprintf(deviceLocationLoggingTopic, sizeof(deviceLocationLoggingTopic), LOCATION_LOGGING_TOPIC, deviceLocation);
+            _mqttClient.subscribe(deviceLocationLoggingTopic, 1);
+            char deviceLocationLiveTopic[32]; // locations/:location/live
+            snprintf(deviceLocationLiveTopic, sizeof(deviceLocationLiveTopic), LOCATION_LOGGING_TOPIC, deviceLocation);
+            _mqttClient.unsubscribe(deviceLocationLiveTopic);
             Serial.println("set new location");
         }
         Serial.println("Updating profile done");
@@ -271,30 +310,30 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
     else if (strcmp(topic, UPDATE_TOPIC) == 0)
     {
 
-        String build = doc["build"];
-        int fw = doc["fw"];
-        if (_profile.isAutoUpdateOn && build == _profile.build && fw > _profile.fw)
+        if (_profile.build == "dev")
         {
-            Serial.println("auto update on ");
-            Serial.println("new FW ready for download ");
-            _profile.fw = fw;
-            _isDownload = true;
+            int fw = doc["fw"][0];
+            if (_profile.isAutoUpdateOn && fw > _profile.fw)
+            {
+                Serial.println("auto update on ");
+                Serial.println("new dev FW ready for download ");
+                _profile.fw = fw;
+                _isDownload = true;
+            }
+        }
+        else
+        {
+            int fw = doc["fw"][0];
+            if (_profile.isAutoUpdateOn && fw > _profile.fw)
+            {
+                Serial.println("auto update on ");
+                Serial.println("new prod FW ready for download ");
+                _profile.fw = fw;
+                _isDownload = true;
+            }
         }
     }
-    else if (strcmp(topic, UPDATE_TOPIC) == 0)
-    {
-
-        String build = doc["build"];
-        int fw = doc["fw"];
-        if (_profile.isAutoUpdateOn && build == _profile.build && fw > _profile.fw)
-        {
-            Serial.println("auto update on ");
-            Serial.println("new FW ready for download ");
-            _profile.fw = fw;
-            _isDownload = true;
-        }
-    }
-
+    doc.clear();
     Serial.println("Publish received.");
     Serial.print("  From topic: ");
     Serial.println(topic);

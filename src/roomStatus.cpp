@@ -1,5 +1,5 @@
-#include "roomStatus.h"
 
+#include "roomStatus.h"
 RoomStatus::RoomStatus(RgbColor &rgb) : _rgb(rgb)
 {
     _lis = Adafruit_LIS3DH();
@@ -22,7 +22,7 @@ void RoomStatus::setup()
     }
 
     _rgb.handelLight();
-    delay(2000);
+
     _lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!
     // Adjust how often the board should read the sensor with this command
     _lis.setDataRate(LIS3DH_DATARATE_100_HZ);

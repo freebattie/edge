@@ -1,13 +1,7 @@
-#include <Arduino.h>
-#include <Wire.h>
-#include <SPI.h>
-#include <Adafruit_LIS3DH.h>
-#include <Adafruit_Sensor.h>
-#include <ArduinoJson.h>
+
+
 #include "timer.h"
-#include "arduino_secrets.h"
-#include <WiFi.h>
-#include <AsyncMqttClient.h>
+
 #include "ota.h"
 #include "mqtt.h"
 #include "storage.h"
@@ -17,8 +11,6 @@
 #include "roomStatus.h"
 #include "lightSensor.h"
 
-#include <WiFi.h>
-#include <HTTPClient.h>
 Adafruit_DotStar strip = Adafruit_DotStar(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BGR);
 #define HALL_SENSOR_PIN 1
 
@@ -63,13 +55,13 @@ void setup()
   setupTimers();
   Serial.begin(9800);
   delay(4000);
-  delay(1000);
+
   mqttClient.setup();
   wifiOta.connectWiFi();
   delay(1000);
   rgb.setup();
   tempSensor.setup();
-  room.setup();
+  // room.setup();
   rgb.setState(ColorState::NORMAL);
   store.start();
   lux.setLuxLevel(350);
@@ -91,6 +83,7 @@ void setup()
 
 void loop()
 {
+  Serial.println("IT WORKED YES");
   handelConnections();
   rgb.handelLight();
   tempSensor.handelSensor(); // TODO HANDEL ALARM??
@@ -156,7 +149,7 @@ void handelDownloadFW()
   if (mqttClient.isUpdateFW())
   {
     Serial.println("is downlaoding new fw");
-    wifiOta.update(profile);
+    wifiOta.update(store.getProfile());
     mqttClient.setIsUpdateFW(false);
   }
 }
@@ -393,7 +386,9 @@ void handelConnections()
   }
   else if (!mqttClient.connected() && wifiOta.status() == WL_CONNECTED)
   {
+
     Serial.println("dissconnected from mqtt.. ");
+
     delay(200);
   }
 }

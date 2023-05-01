@@ -54,12 +54,12 @@ void Ota::update(profile_t profile)
 
     Serial.println("Connecting to http server");
     delay(500);
-    Serial.print(".");
+
     int status = WL_IDLE_STATUS;
     HTTPClient client; // HTTP
 
     char buff[32];
-    snprintf(buff, sizeof(buff), PATH, profile.build, profile.build, profile.fw);
+    snprintf(buff, sizeof(buff), PATH, profile.build.c_str(), profile.build.c_str(), profile.fw);
 
     Serial.print("Check for update file ");
     Serial.println(buff);

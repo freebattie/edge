@@ -150,6 +150,8 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     int fw = doc["fw"].as<int>();
     _profile.isAutoUpdateOn = doc["auto"].as<bool>();
     String build = doc["build"].as<String>();
+    Serial.print("before u were  is dev?");
+    Serial.println(_profile.build);
     if (_profile.isAutoUpdateOn)
     {
         // GET FW FOR YOUR BUILD
@@ -164,6 +166,8 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     }
 
     //{"deviceName": "name", "location": "location2", "build" : "dev", "city": "oslo", "fw":"1","auto":"true"} ;
+    Serial.print("this is dev?");
+    Serial.println(_profile.build);
     _storeProfile.saveProfile(_profile);
     profile_t _profile = _storeProfile.getProfile();
     Serial.println(_profile.mqtt_pass);
@@ -183,7 +187,7 @@ void Mqtt::onMqttConnect(bool sessionPresent)
 {
     Serial.println("connected to MQTT SERVER ");
     StaticJsonDocument<256> doc;
-
+    _isMqttDisconectAlarm = false;
     doc["deviceName"] = _profile.deviceName;
     doc["fw"] = _profile.fw;
     doc["location"] = _profile.location;
@@ -229,7 +233,6 @@ void Mqtt::onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
     {
         Serial.println("Try to reconnect to  MQTT ");
         connectToMqtt();
-        _isMqttDisconectAlarm = false;
     }
 }
 void Mqtt::onMqttSubscribe(uint16_t packetId, uint8_t qos)
@@ -261,11 +264,7 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
 
     char deviceTopic[32]; // devices/:name
     snprintf(deviceTopic, sizeof(deviceTopic), DEVICE, deviceName);
-    Serial.print("value topic is ");
-    Serial.print(topic);
-    Serial.print(" checing if it is same as ");
-    Serial.println(deviceTopic);
-    Serial.print("value comer is ");
+
     Serial.println(strcmp(topic, deviceSetupTopic));
     if (error)
     {

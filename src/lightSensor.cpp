@@ -262,9 +262,11 @@ void LightSensor::handelSunlightLogging()
     int currentH = round(hours);
     if (state == GROW)
     {
-        if (_lastHours <= currentH)
-            return;
+        /* if (_lastHours <= currentH)
+            return; */
         // STOP GROW LIGHTS AND COLLECT TIME
+        Serial.print("lux is : ");
+        Serial.println(lux);
         if (lux > LAMP_LUX_LEVEL ||
             _lightHours.totalHours() + currentH - _lastHours >= MIN_LIGH_HOURS) // CHECK HAOURS
         {

@@ -35,4 +35,4 @@
 
 #define ON_CHANGE_SPACING 2000
 
-#define LAMP_LUX_LEVEL 100
+#define LAMP_LUX_LEVEL 300

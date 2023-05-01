@@ -2,7 +2,7 @@
 #define LIGHTSENSOR_H
 #include "Adafruit_LTR329_LTR303.h"
 #include "rgbColor.h"
-#include "time.h"
+
 #include <WiFi.h>
 #include "arduino_secrets.h"
 #include "struct.h"

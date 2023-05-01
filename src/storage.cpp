@@ -27,7 +27,7 @@ void Storage::start()
         _profileSave.city = "Stavanger";
         _profileSave.mqtt_pass = MQTT_PASSWORD;
         _profileSave.mqtt_username = NAME;
-        _profileSave.fw = 0;
+        _profileSave.fw = 5;
         _profileSave.build = FW_BUILD;
         Serial.print("started? ");
         Serial.println(started);

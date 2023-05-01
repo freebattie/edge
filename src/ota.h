@@ -23,7 +23,7 @@ private:
     const char *SERVER = HTTP_SERVER;
     bool _isConAlarm;
     const unsigned short SERVER_PORT = HTTP_PORT;
-    const char *PATH = "/fw/%s/fw-%s-update-v%d.bin";
+    const char *PATH = "/fw/%s/fw-%s-v%d.bin";
     int _Currentversion;
     bool _isAutoUpdate = false;
 };

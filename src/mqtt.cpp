@@ -80,7 +80,16 @@ void Mqtt::setup()
 void Mqtt::connect()
 {
     Serial.println("re connecting to Mqtt server");
-    _mqttClient.setCredentials(NAME, _profile.mqtt_pass.c_str());
+    Serial.print("using password ");
+    Serial.println(_profile.mqtt_pass.c_str());
+    //_mqttClient.setClientId(_profile.mqtt_username.c_str());
+    _mqttClient.disconnect();
+    if (_mqttClient.connected())
+    {
+        _mqttClient.disconnect();
+    }
+
+    _mqttClient.setCredentials(_profile.mqtt_username.c_str(), _profile.mqtt_pass.c_str());
     _mqttClient.connect();
 }
 
@@ -123,7 +132,9 @@ bool Mqtt::getIsDissconectAlarm()
 void Mqtt::connectToMqtt()
 {
     Serial.println("Connecting to MQTT...");
+    _mqttClient.setCredentials(_profile.mqtt_username.c_str(), _profile.mqtt_pass.c_str());
     _mqttClient.connect();
+
     Serial.println("MQTT CONNECTED");
 }
 
@@ -133,8 +144,9 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     _profile.deviceName = doc["deviceName"].as<String>();
     _profile.location = doc["location"].as<String>();
     Serial.println("connected to MQTT SERVER ");
-
-    _profile.city = doc["city"].as<String>();
+    _profile.mqtt_username = doc["deviceName"].as<String>();
+    _profile.mqtt_pass = doc["mqttPass"].as<String>();
+    //_profile.city = doc["city"].as<String>();
     int fw = doc["fw"].as<int>();
     _profile.isAutoUpdateOn = doc["auto"].as<bool>();
     String build = doc["build"].as<String>();
@@ -154,7 +166,7 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     //{"deviceName": "name", "location": "location2", "build" : "dev", "city": "oslo", "fw":"1","auto":"true"} ;
     _storeProfile.saveProfile(_profile);
     profile_t _profile = _storeProfile.getProfile();
-    Serial.println(_profile.city);
+    Serial.println(_profile.mqtt_pass);
     _isUpdateProfile = true;
 
     // update city for new location
@@ -184,6 +196,7 @@ void Mqtt::onMqttConnect(bool sessionPresent)
     const char *deviceName = _profile.deviceName.c_str();
 
     char deviceSetupTopic[32]; // devices/:name/profile
+
     snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVICE_SETUP_PROFILE_TOPIC, deviceName);
 
     char deviceTopic[32]; // devices/:name
@@ -248,21 +261,26 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
 
     char deviceTopic[32]; // devices/:name
     snprintf(deviceTopic, sizeof(deviceTopic), DEVICE, deviceName);
-
+    Serial.print("value topic is ");
+    Serial.print(topic);
+    Serial.print(" checing if it is same as ");
+    Serial.println(deviceTopic);
+    Serial.print("value comer is ");
+    Serial.println(strcmp(topic, deviceSetupTopic));
     if (error)
     {
         Serial.print(F("deserializeJson() failed: "));
         Serial.println(error.c_str());
         return;
     }
-    if (strcmp(topic, LOCATIONS_UPDATE))
+    if (strcmp(topic, LOCATIONS_UPDATE) == 0)
     {
         String device = doc["device"];
         if (device == _profile.deviceName)
         {
             _profile.city = doc["city"].as<String>();
         }
-        }
+    }
     else if (strcmp(topic, deviceTopic) == 0)
     {
         /*  _profile.mqtt_pass = doc["password"].as<String>(); */

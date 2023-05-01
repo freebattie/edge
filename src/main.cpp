@@ -26,6 +26,7 @@ Timer wifiTimer = Timer();
 Timer mqttTimer = Timer();
 Timer apiWeatherTimer = Timer();
 Timer mqttIntervall = Timer();
+Timer msgIntervall = Timer();
 Ota wifiOta = Ota();
 Mqtt mqttClient = Mqtt();
 Storage store = Storage();
@@ -53,8 +54,12 @@ void handelProfileUpdate();
 String GetWeather();
 void handelDownloadFW();
 void handelFindMe();
+Timer transmittingIntervall = Timer();
+int outsideTemp;
+String sky;
 void setup()
 {
+  transmittingIntervall.setInterval(1000);
   setupTimers();
   Serial.begin(9800);
   delay(4000);
@@ -74,30 +79,53 @@ void setup()
   Serial.println("SETUP DONE");
   Serial.println(profile.city);
   lastFlags.isLogging = store.getProfile().location.length() > 0;
-  int weathertimer;
-  int senddataTimer;
+
+  String buffer = GetWeather();
+  StaticJsonDocument<256> doc;
+  deserializeJson(doc, buffer);
+
+  outsideTemp = doc["main"]["temp"];
+  sky = doc["weather"]["main"].as<String>();
+  doc.clear();
 }
 
 void loop()
 {
-
   handelConnections();
   rgb.handelLight();
-  tempSensor.handelSensor();
+  tempSensor.handelSensor(); // TODO HANDEL ALARM??
   room.handelSensors();
   rgb.handelLight();
   lux.handelSensor();
-
-  if (lastFlags.isLogging || currentFlags.isLogging)
+  readLiveSensorValues();
+  // send data on change
+  transmittOnValueChanged();
+  if (transmittingIntervall.checkInterval() == RUNCODE)
   {
-    handelData();
-  }
+    Serial.println("intervall");
+    transmittingIntervall.reset();
 
+    if (lastFlags.isLogging || currentFlags.isLogging)
+    {
+      Serial.println("is logging");
+      handelData();
+    }
+    else
+    {
+      Serial.println("is not logging");
+    }
+  }
   handelProfileUpdate();
   handelDownloadFW();
   handelDeviceAlarm();
   handelFindMe();
-  delay(400);
+  if (mqttClient.isUpdateProfile())
+  {
+    mqttClient.setIsUpdateProfile(false);
+    ESP.restart();
+  }
+
+  delay(100);
 }
 
 #pragma region Methods
@@ -117,8 +145,9 @@ void handelProfileUpdate()
 {
   if (mqttClient.isUpdateProfile())
   {
+    Serial.println("is updating profile");
     profile = store.getProfile();
-    mqttClient.setIsUpdateProfile(false);
+
     currentFlags.isLogging = profile.location.length() > 0;
   }
 }
@@ -126,6 +155,7 @@ void handelDownloadFW()
 {
   if (mqttClient.isUpdateFW())
   {
+    Serial.println("is downlaoding new fw");
     wifiOta.update(profile);
     mqttClient.setIsUpdateFW(false);
   }
@@ -143,28 +173,22 @@ void handelDeviceAlarm()
 }
 void handelData()
 {
-  if (mqttIntervall.checkInterval() == RUNCODE)
-  {
-    mqttIntervall.reset();
-    readLiveSensorValues();
-    // send data on change
-    transmittOnValueChanged();
-    // send value data
-    transmittLiveValues();
-    // send collected sun data when min sun reached;
-    if (lux.getSendData() || mqttTesting.sendLightData)
-    {
 
-      StaticJsonDocument<256> doc;
-      String msg;
-      light_data_t data = lux.getLightData();
-      doc["sunlight"] = data.sunLightHours;
-      doc["lamplight"] = data.lampLightHours;
-      doc["total"] = data.totalHours();
-      serializeJson(doc, msg);
-      mqttClient.publish("locations/" + profile.location + "/light", msg);
-      lux.setSendData(false);
-    }
+  // send value data
+  transmittLiveValues();
+  // send collected sun data when min sun reached;
+  if (lux.getSendData())
+  {
+
+    StaticJsonDocument<256> doc;
+    String msg;
+    light_data_t data = lux.getLightData();
+    doc["sunLight"] = data.sunLightHours;
+    doc["lampLight"] = data.lampLightHours;
+    doc["total"] = data.totalHours();
+    serializeJson(doc, msg);
+    mqttClient.publish("locations/" + profile.location + "/light", msg);
+    lux.setSendData(false);
   }
 }
 
@@ -181,19 +205,17 @@ void readLiveSensorValues()
   liveValues.humidity = humid;
   liveValues.temp = temp;
   liveValues.lux = lux.getLux();
-
+  // reads the values and if prop 3 is set to true it checks vs upper limt and false it checks vs lower limit
   currentFlags.isHighHumidityAlarm = isAlarmLimitReached(humid, HUMID_H_ALARM, true);
   currentFlags.isLowHumidityAlarm = isAlarmLimitReached(humid, HUMID_L_ALARM, false);
   currentFlags.isHighHumidityWarning = isAlarmLimitReached(humid, HUMID_H_WARN, true);
   currentFlags.isLowHumidityWarning = isAlarmLimitReached(humid, HUMID_L_WARN, false);
-
   currentFlags.isHighTempAlarm = isAlarmLimitReached(temp, TEMP_H_ALARM, true);
   currentFlags.isLowTempAlarm = isAlarmLimitReached(temp, TEMP_L_ALARM, false);
   currentFlags.isHighTempWarning = isAlarmLimitReached(temp, TEMP_H_WARN, true);
   currentFlags.isLowTempWarning = isAlarmLimitReached(temp, TEMP_L_WARN, false);
 
   currentFlags.isWindowOpen = room.getIsWindowOpen();
-
   currentFlags.isLogging = store.getProfile().location.length() > 0;
 
   if (apiWeatherTimer.checkInterval() == RUNCODE)
@@ -203,9 +225,9 @@ void readLiveSensorValues()
     StaticJsonDocument<256> doc;
     deserializeJson(doc, buffer);
 
-    int outsideTemp = doc["main"]["temp"];
-    String sky = doc["weather"]["main"];
-
+    outsideTemp = doc["main"]["temp"];
+    sky = doc["weather"]["main"].as<String>();
+    doc.clear();
     if (outsideTemp < HEATER_FAILURE_TEMP && currentFlags.isWindowOpen)
     {
       currentFlags.isWindowOpenAlarm = true;
@@ -255,12 +277,16 @@ String GetWeather()
   http.end();
   return data;
 }
+
 bool transmittGivenValueOnChange(bool oldVal, bool newVal, String type, String name)
 {
   StaticJsonDocument<256> doc;
   String msg;
+
   if (oldVal != newVal)
   {
+
+    msgIntervall.reset();
     doc["type"] = type;
     doc["name"] = name;
     doc["status"] = newVal;
@@ -336,22 +362,18 @@ void transmittLiveValues()
 
   doc.clear();
 }
-void handelTransmittingBoolState()
-{
-  if (rgb.getState() == ALARM)
-  {
-    /* code */
-  }
-}
+
 void setupTimers()
 {
   mqttIntervall.setInterval(1000);
-  apiWeatherTimer.setInterval(10000);
-  apiWeatherTimer.start();
   mqttIntervall.start();
+  apiWeatherTimer.setInterval(10 * 60 * 1000);
+  apiWeatherTimer.start();
+
   wifiTimer.setInterval(5000);
   wifiTimer.start();
-
+  msgIntervall.setInterval(2000);
+  msgIntervall.start();
   mqttTimer.setInterval(5000);
   mqttTimer.start();
 }

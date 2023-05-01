@@ -5,6 +5,7 @@ LightSensor::LightSensor(RgbColor &rgb) : _rgb(rgb)
     configTime(_gmtOffset_sec, _daylightOffset_sec, _ntpServer);
 
     _ltr = Adafruit_LTR329();
+    _sensorInitTimer.setInterval(4000);
 }
 
 void LightSensor::setup()
@@ -40,11 +41,12 @@ void LightSensor::setup()
     Serial.println("Time variables");
     delay(1000);
     _savedDay = readDay();
-    _lastHours = readhour();
+    _lastHours = round(readhour());
 }
 
 void LightSensor::handelSensor()
 {
+
     readSensor();
     calculateLux();
     handelSunlightLogging();
@@ -116,6 +118,7 @@ void LightSensor::setNoise(uint16_t ch0, uint16_t ch1)
 void LightSensor::calculateNoise()
 {
     int start = millis();
+    // make sure sensor is fully ready
     while (millis() < start + 10000)
     {
         if (_ltr.newDataAvailable())
@@ -129,20 +132,23 @@ void LightSensor::calculateNoise()
         delay(100);
     }
     _valid = false;
-
+    // when sensor is ready read values and use min offset of -5
     while (!_valid)
     {
         if (_ltr.newDataAvailable())
         {
+            // TODO: lokk at thsi
             _valid = _ltr.readBothChannels(_visible_plus_ir, _infrared);
             if (_valid)
             {
                 Serial.println("Getting base line");
                 _CH0_OFFSET_VAL = _visible_plus_ir;
                 _CH1_OFFSET_VAL = _infrared;
-                // know from thesting that it will at least be this.
+                // know from thesting that it will at least be this much noise.
                 _CH0_MIN_VAL = -5;
                 _CH1_MIN_VAL = -5;
+                _CH0_MAX_VAL = 5;
+                _CH1_MAX_VAL = 5;
             }
         }
         delay(100);
@@ -184,15 +190,17 @@ int LightSensor::readDay()
     return days;
 }
 
-int LightSensor::readhour()
+float LightSensor::readhour()
 {
     strftime(_getHour, 3, "%H", &_timeinfo);
-    Serial.print("  Hour: ");
-    Serial.println(_getHour);
-    int hours = atoi(_getHour);
-    Serial.print("/");
-    Serial.println(hours);
-    return hours;
+    strftime(_getMin, 3, "%M", &_timeinfo);
+    char *line = "%s.%s";
+    char messuredTime[6]; // devices/:name/profile
+
+    snprintf(messuredTime, sizeof(messuredTime), line, _getHour, _getMin);
+
+    int time = atof(messuredTime);
+    return round(time);
 }
 
 void LightSensor::readSensor()
@@ -203,6 +211,7 @@ void LightSensor::readSensor()
         _valid = _ltr.readBothChannels(channel0, channel1);
         if (_valid)
         {
+            // only update if value changed more then noise level messured
             if (channel0 > _visible_plus_ir + _CH0_MAX_VAL)
             {
                 _visible_plus_ir = channel0;
@@ -246,46 +255,51 @@ bool LightSensor::isSunny()
 
 void LightSensor::handelSunlightLogging()
 {
-    int hours = readhour();
-    if (_lastHours <= hours)
-        return;
+    float hours = readhour();
+
     ColorState state = _rgb.getState();
+    double lux = getLux();
+    int currentH = round(hours);
     if (state == GROW)
     {
-        _rgb.setState(GROWOFF);
-        int start = millis();
-        while (millis() < start + 4000)
+        if (_lastHours <= currentH)
+            return;
+        // STOP GROW LIGHTS AND COLLECT TIME
+        if (lux > LAMP_LUX_LEVEL ||
+            _lightHours.totalHours() + currentH - _lastHours >= MIN_LIGH_HOURS) // CHECK HAOURS
         {
-            readSensor();
+
+            if (_lastHours < currentH)
+            {
+
+                _lightHours.lampLightHours += currentH - _lastHours;
+                _lastHours = currentH;
+            }
+            _rgb.setState(GROWOFF);
+        }
+    }
+    else
+    {
+        if (lux <= LAMP_LUX_LEVEL &&
+            _lightHours.totalHours() + currentH - _lastHours < MIN_LIGH_HOURS &&
+            currentH >= SUN_UP_HOUR) // CHECK HOURS
+        {
+
+            if (_lastHours < currentH)
+            {
+                _lightHours.sunLightHours += currentH - _lastHours;
+                _lastHours = currentH;
+            }
+            _rgb.setState(GROW);
         }
     }
 
-    if (!_isCurrentSun &&
-        state == GROW &&
-        _lightHours.totalHours() + (_lastHours - hours) >= MIN_LIGH_HOURS &&
-        !isSunny())
-    {
-        _lightHours.lampLightHours = _lastHours - hours;
-        _lastHours = hours;
-    }
-
-    else if (_isCurrentSun != isSunny() &&
-             _savedDay == readDay() &&
-             _lastHours >= SUN_UP_HOUR)
-    {
-        calculateTotalLight(hours);
-    }
-    else if (_savedDay != readDay())
+    if (_savedDay != readDay())
     {
         _isSendData = true;
 
         _savedDay = readDay();
     }
-
-    if (!isSunny() && _lastHours >= SUN_UP_HOUR && _lightHours.totalHours() < MIN_LIGH_HOURS)
-        _rgb.setState(GROW);
-    else
-        _rgb.setState(NORMAL);
 }
 
 void LightSensor::calculateLux()
@@ -316,9 +330,6 @@ void LightSensor::calculateLux()
 
     else
         _lux = 0;
-
-    Serial.print("Lux is: ");
-    Serial.println(_lux);
 }
 
 void LightSensor::calculateTotalLight(int hours)

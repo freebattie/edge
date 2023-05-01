@@ -98,7 +98,6 @@ void TempSensor::readTemp()
 void TempSensor::readHeater()
 {
     _sht31.heater(_isHeaterOn);
-    Serial.println(_isTempAlarm);
 }
 
 void TempSensor::readHumidity()

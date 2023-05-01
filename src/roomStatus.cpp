@@ -4,11 +4,14 @@ RoomStatus::RoomStatus(RgbColor &rgb) : _rgb(rgb)
 {
     _lis = Adafruit_LIS3DH();
     pinMode(HALL_SENSOR_PIN, INPUT);
+    _doorTimer = Timer();
 }
 
 void RoomStatus::setup()
 {
     _startTimer = millis();
+    _doorTimer.setInterval(5000);
+    _doorTimer.start();
     if (!_lis.begin(0x18))
     { // change this to 0x19 for alternative i2c address
 
@@ -73,5 +76,25 @@ void RoomStatus::readWindowAngelSensor()
 
 void RoomStatus::readDoorSensor()
 {
-    _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
+    bool tmp = digitalRead(HALL_SENSOR_PIN);
+    if (!tmp)
+    {
+        _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
+        _startDoorTimer = false;
+        _doorTimer.stop();
+    }
+    else if (_doorTimer.checkInterval() == RUNCODE || _doorTimer.checkInterval() == STOPPED)
+    {
+        _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
+        _doorTimer.stop();
+    }
+    else
+    {
+        if (!_startDoorTimer)
+        {
+            _doorTimer.reset();
+            _doorTimer.start();
+            _startDoorTimer = true;
+        }
+    }
 }

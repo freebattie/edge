@@ -33,4 +33,6 @@
 #define TEMP_H_WARN 30
 #define TEMP_L_WARN 24
 
-#define ON_CHANGE_SPACING 400
+#define ON_CHANGE_SPACING 2000
+
+#define LAMP_LUX_LEVEL 100

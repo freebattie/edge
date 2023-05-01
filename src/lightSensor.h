@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include "arduino_secrets.h"
 #include "struct.h"
+#include "timer.h"
 class LightSensor
 {
 public:
@@ -23,7 +24,7 @@ private:
     void setNoise(uint16_t ch0, uint16_t ch1);
     void calculateNoise();
     int readDay();
-    int readhour();
+    float readhour();
     void readSensor();
     bool getIsAlarm();
 
@@ -45,6 +46,9 @@ private:
     struct tm _timeinfo;
     char _getDay[3];
     char _getHour[3];
+    char _getMin[3];
+    float _totalSunHours;
+    float _totalLampHours;
     // char _currentDay[3];
     // char _currentHour[3];
     light_data_t _lightHours;
@@ -53,5 +57,8 @@ private:
     bool _isCurrentSun;
     bool _isSendData = false;
     bool _isAlarm = false;
+    bool _startInitCheckTimer = false;
+    Timer _sensorInitTimer;
+    int _lampMaxLux;
 };
 #endif

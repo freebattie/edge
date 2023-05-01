@@ -5,6 +5,7 @@
 #include <Adafruit_LIS3DH.h>
 #include <Adafruit_Sensor.h>
 #include "rgbColor.h"
+#include "timer.h"
 class RoomStatus
 {
 public:
@@ -24,8 +25,10 @@ private:
     bool _isAlarm = false;
     bool _isalarmSet = false;
     bool _isDoorOpen = false;
+    bool _startDoorTimer = false;
     float _windowAngel = 0; // 0 closed 90 all the way open
     float _windowOffsett = 0;
     unsigned long _startTimer;
+    Timer _doorTimer;
 };
 #endif

@@ -267,6 +267,7 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
 
     StaticJsonDocument<600> doc;
     DeserializationError error = deserializeJson(doc, payload);
+
     const char *deviceName = _profile.deviceName.c_str();
     char deviceSetupTopic[32]; // devices/:name/profile
     snprintf(deviceSetupTopic, sizeof(deviceSetupTopic), DEVICE_SETUP_PROFILE_TOPIC, deviceName);

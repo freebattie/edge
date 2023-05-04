@@ -8,15 +8,21 @@
 #include "arduino_secrets.h"
 #include "timer.h"
 #include "struct.h"
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+#include "SPIFFS.h"
 
 class Ota
 {
 public:
     Ota();
-    void connectWiFi(String ssid = SECRET_SSID, String pass = SECRET_PASS);
-    void reConnectWiFi(String ssid = SECRET_SSID, String pass = SECRET_PASS);
+    void setup();
     void update(profile_t profile);
+    bool initWiFi();
     bool getIsDissconnected();
+    void initSPIFFS();
+    void reConnect();
+    bool setupDone();
     wl_status_t status();
 
 private:
@@ -26,5 +32,11 @@ private:
     const char *PATH = "/fw/%s/fw-%s-v%d.bin";
     int _Currentversion;
     bool _isAutoUpdate = false;
+    static bool isSetupDone;
+    static IPAddress localIP;
+    // IPAddress localIP(192, 168, 1, 200); // hardcoded
+
+    // Set your Gateway IP address
+    static IPAddress localGateway;
 };
 #endif

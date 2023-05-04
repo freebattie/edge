@@ -10,6 +10,7 @@
 #include "tempSensor.h"
 #include "roomStatus.h"
 #include "lightSensor.h"
+#include "SPIFFS.h"
 
 Adafruit_DotStar strip = Adafruit_DotStar(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BGR);
 #define HALL_SENSOR_PIN 1
@@ -51,87 +52,107 @@ Timer transmittingIntervall = Timer();
 Timer LoggerMsgTimer = Timer();
 int outsideTemp;
 String sky;
+
 void setup()
 {
   transmittingIntervall.setInterval(600);
   setupTimers();
-  Serial.begin(9800);
+  Serial.begin(115200);
   delay(4000);
+  SPIFFS.begin(false);
 
   mqttClient.setup();
-  wifiOta.connectWiFi();
+  wifiOta.setup();
   delay(1000);
-  rgb.setup();
-  tempSensor.setup();
-  room.setup();
-  rgb.setState(ColorState::NORMAL);
-  store.start();
-  lux.setLuxLevel(350);
-  lux.setMinHours(8);
-  lux.setup();
-  profile = store.getProfile();
-  Serial.println("SETUP DONE");
-  Serial.println(profile.city);
-  lastFlags.isLogging = store.getProfile().location.length() > 0;
+  if (wifiOta.setupDone())
+  {
+    rgb.setup();
+    tempSensor.setup();
+    room.setup();
+    rgb.setState(ColorState::NORMAL);
+    store.start();
+    lux.setLuxLevel(350);
+    lux.setMinHours(8);
+    lux.setup();
+    profile = store.getProfile();
+    Serial.println("SETUP DONE");
+    Serial.println(profile.city);
+    lastFlags.isLogging = store.getProfile().location.length() > 0;
 
-  String buffer = GetWeather();
-  StaticJsonDocument<256> doc;
-  deserializeJson(doc, buffer);
+    String buffer = GetWeather();
+    StaticJsonDocument<1024> doc;
 
-  outsideTemp = doc["main"]["temp"];
-  sky = doc["weather"]["main"].as<String>();
-  doc.clear();
+    DeserializationError error = deserializeJson(doc, buffer);
+
+    if (error)
+    {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.c_str());
+      return;
+    }
+    outsideTemp = doc["main"]["temp"];
+    sky = doc["weather"]["main"].as<String>();
+    doc.clear();
+  }
+  else
+    Serial.println("setup server running");
 }
 
 void loop()
 {
-  LoggerMsgTimer.setInterval(3000);
-  LoggerMsgTimer.start();
-  handelConnections();
-  rgb.handelLight();
-  tempSensor.handelSensor(); // TODO HANDEL ALARM??
-  room.handelSensors();
-  rgb.handelLight();
-  lux.handelSensor();
-  readLiveSensorValues();
-  // send data on change
-  transmittOnValueChanged();
-
-  if (LoggerMsgTimer.checkInterval() == RUNCODE)
+  if (wifiOta.setupDone())
   {
-    LoggerMsgTimer.reset();
-    if (lastFlags.isLogging || currentFlags.isLogging)
+    LoggerMsgTimer.setInterval(3000);
+    LoggerMsgTimer.start();
+    handelConnections();
+    rgb.handelLight();
+    tempSensor.handelSensor(); // TODO HANDEL ALARM??
+    room.handelSensors();
+    rgb.handelLight();
+    lux.handelSensor();
+    readLiveSensorValues();
+    // send data on change
+    transmittOnValueChanged();
+    if (LoggerMsgTimer.checkInterval() == RUNCODE)
     {
-      Serial.println("is logging");
+      LoggerMsgTimer.reset();
+      if (lastFlags.isLogging || currentFlags.isLogging)
+      {
+        Serial.println("is logging");
+      }
+      else
+      {
+        Serial.println("is not logging");
+      }
     }
-    else
+    if (transmittingIntervall.checkInterval() == RUNCODE)
     {
-      Serial.println("is not logging");
+      // Serial.println("intervall");
+      transmittingIntervall.reset();
+
+      if (lastFlags.isLogging || currentFlags.isLogging)
+      {
+
+        handelData();
+      }
     }
+
+    handelDownloadFW();
+    handelProfileUpdate();
+    if (mqttClient.isUpdateProfile() && !isblockProfile)
+    {
+      mqttClient.setIsUpdateProfile(false);
+      // ESP.restart();
+    }
+    handelDeviceAlarm();
+    handelFindMe();
+    delay(100);
   }
-  if (transmittingIntervall.checkInterval() == RUNCODE)
+  else
   {
-    // Serial.println("intervall");
-    transmittingIntervall.reset();
-
-    if (lastFlags.isLogging || currentFlags.isLogging)
-    {
-
-      handelData();
-    }
+    Serial.println("please go to webpage and and turn off wifimanager if setup is done");
+    delay(300);
   }
-
-  handelDownloadFW();
-  handelProfileUpdate();
-  if (mqttClient.isUpdateProfile() && !isblockProfile)
-  {
-    mqttClient.setIsUpdateProfile(false);
-    // ESP.restart();
-  }
-  handelDeviceAlarm();
-  handelFindMe();
-
-  delay(100);
 }
 
 #pragma region Methods
@@ -230,8 +251,16 @@ void readLiveSensorValues()
   {
     apiWeatherTimer.reset();
     String buffer = GetWeather();
-    StaticJsonDocument<256> doc;
-    deserializeJson(doc, buffer);
+    StaticJsonDocument<1024> doc;
+
+    DeserializationError error = deserializeJson(doc, buffer);
+
+    if (error)
+    {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.c_str());
+      return;
+    }
 
     outsideTemp = doc["main"]["temp"];
     sky = doc["weather"]["main"].as<String>();
@@ -393,15 +422,23 @@ void handelConnections()
 {
   if (wifiOta.status() != WL_CONNECTED && wifiTimer.checkInterval() == RUNCODE)
   {
-    wifiTimer.reset();
-    wifiOta.connectWiFi();
+    // go to http://deviceip and reset wifimanger to change network
+    Serial.println("Lost connection to wifi.. ");
+    Serial.println("go to http://deviceip and reset wifimanger to change network ");
+    Serial.println("trying to reconnect..  ");
+    delay(2000);
+    wifiOta.reConnect();
   }
-  else if (!mqttClient.connected() && wifiOta.status() == WL_CONNECTED && mqttTimer.checkInterval() == RUNCODE)
+  else if (!mqttClient.connected() &&
+           wifiOta.status() == WL_CONNECTED &&
+           mqttTimer.checkInterval() == RUNCODE &&
+           wifiOta.setupDone())
   {
     mqttTimer.reset();
-    Serial.println("Restarting device standby .. ");
+    Serial.println("Connected to wifi but no Mqtt server found.. ");
+
     delay(2000);
-    ESP.restart();
+    // ESP.restart();
   }
   else if (!mqttClient.connected() && wifiOta.status() == WL_CONNECTED)
   {

@@ -1,5 +1,100 @@
 #include "ota.h"
+// WIFIMANAGER
 
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+// Search for parameter in HTTP POST request
+const char *PARAM_INPUT_1 = "ssid";
+const char *PARAM_INPUT_2 = "pass";
+const char *PARAM_INPUT_3 = "ip";
+const char *PARAM_INPUT_4 = "gateway";
+const char *PARAM_INPUT_5 = "status";
+// Variables to save values from HTML form
+
+// File paths to save input values permanently
+const char *ssidPath = "/ssid.txt";
+const char *passPath = "/pass.txt";
+const char *ipPath = "/ip.txt";
+const char *gatewayPath = "/gateway.txt";
+const char *statusPath = "/status.txt";
+bool Ota::isSetupDone = false;
+IPAddress Ota::localIP;
+// IPAddress localIP(192, 168, 1, 200); // hardcoded
+
+// Set your Gateway IP address
+IPAddress Ota::localGateway;
+// IPAddress localGateway(192, 168, 1, 1); //hardcoded
+static IPAddress subnet(255, 255, 255, 0);
+static IPAddress dns1(80, 232, 93, 176);
+static IPAddress dns2(80, 232, 93, 177);
+// Timer variables
+static unsigned long previousMillis = 0;
+static const long interval = 10000; // interval to wait for Wi-Fi connection (milliseconds)
+// Set LED GPIO
+static const int ledPin = 2;
+// Stores LED state
+
+static String ledState;
+
+String _ssid;
+String _pass;
+String _ip;
+String _gateway;
+String _status;
+String readFile(fs::FS &fs, const char *path)
+{
+    Serial.printf("Reading file: %s\r\n", path);
+
+    File file = fs.open(path);
+    if (!file || file.isDirectory())
+    {
+        Serial.println("- failed to open file for reading");
+        return String();
+    }
+
+    String fileContent;
+    while (file.available())
+    {
+        fileContent = file.readStringUntil('\n');
+        break;
+    }
+    return fileContent;
+}
+void writeFile(fs::FS &fs, const char *path, const char *message)
+{
+    Serial.printf("Writing file: %s\r\n", path);
+
+    File file = fs.open(path, FILE_WRITE);
+    if (!file)
+    {
+        Serial.println("- failed to open file for writing");
+        return;
+    }
+    if (file.print(message))
+    {
+        Serial.println("- file written");
+    }
+    else
+    {
+        Serial.println("- write failed");
+    }
+}
+String processor(const String &var)
+{
+    if (var == "STATE")
+    {
+        if (_status == "ON")
+        {
+            ledState = "ON";
+        }
+        else
+        {
+            ledState = "OFF";
+        }
+        return ledState;
+    }
+    return String();
+}
 Ota::Ota()
 {
 }
@@ -7,46 +102,133 @@ wl_status_t Ota::status()
 {
     return WiFi.status();
 }
-void Ota::reConnectWiFi(String ssid, String pass)
-{
-    WiFi.begin(ssid.c_str(), pass.c_str());
-}
 
-void Ota::connectWiFi(String ssid, String pass)
+bool Ota::setupDone()
 {
-    Serial.println("Connecting...");
-    WiFi.begin(ssid.c_str(), pass.c_str());
-    Timer setupTimer = Timer();
-    setupTimer.setInterval(5000);
-    setupTimer.start();
-    while (setupTimer.checkInterval() != RUNCODE && setupTimer.checkInterval() != STOPPED)
+    if (_status == "ON")
+    {
+        return false;
+    }
+    else if (_status == "OFF")
+    {
+        return true;
+    }
+    else
+        return false;
+}
+void Ota::setup()
+{
+    initSPIFFS();
+
+    // Load values saved in SPIFFS
+    _ssid = readFile(SPIFFS, ssidPath);
+    _pass = readFile(SPIFFS, passPath);
+    _ip = readFile(SPIFFS, ipPath);
+    _gateway = readFile(SPIFFS, gatewayPath);
+    _status = readFile(SPIFFS, statusPath);
+    Serial.println(_ssid);
+    Serial.println(_pass);
+    Serial.println(_ip);
+    Serial.println(_gateway);
+    Serial.println(_status);
+
+    if (initWiFi())
     {
 
-        if (setupTimer.readElaspedTime() > 10000)
-        {
-            setupTimer.stop();
-            Serial.println("WiFi connection failed");
-            Serial.println("Restarting ESP");
-            delay(2000);
-            ESP.restart();
-        }
-        if (WiFi.status() != WL_CONNECTED)
-        {
-            WiFi.begin(ssid.c_str(), pass.c_str());
-            Serial.println("Connecting...");
-            _isConAlarm = true;
-        }
-        else
-        {
-            setupTimer.stop();
-            Serial.println("Connected to WIFI");
-            _isConAlarm = false;
-        }
+        // Route for root / web page
+        server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+                  { request->send(SPIFFS, "/index.html", "text/html", false, processor); });
+        server.serveStatic("/", SPIFFS, "/");
 
-        delay(200);
+        // Route to set GPIO state to HIGH
+        server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request)
+                  {
+            _status = "ON";
+            writeFile(SPIFFS, statusPath, _status.c_str());
+            writeFile(SPIFFS, ipPath, "");
+            writeFile(SPIFFS, ssidPath, "");
+            ESP.restart();
+            request->send(SPIFFS, "/index.html", "text/html", false,processor); });
+
+        // Route to set GPIO state to LOW
+        server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request)
+                  {
+            _status = "OFF";
+            writeFile(SPIFFS, statusPath, _status.c_str());
+            ESP.restart();
+            request->send(SPIFFS, "/index.html", "text/html", false),processor; });
+        server.begin();
     }
-    setupTimer.stop();
+    else
+    {
+
+        // Connect to Wi-Fi network with SSID and password
+        Serial.println("Setting AP (Access Point)");
+        // NULL sets an open Access Point
+        WiFi.softAP("ESP-WIFI-MANAGER", NULL);
+
+        IPAddress IP = WiFi.softAPIP();
+        Serial.print("AP IP address: ");
+        Serial.println(IP);
+
+        // Web Server Root URL
+        server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+                  { request->send(SPIFFS, "/wifimanager.html", "text/html"); });
+
+        server.serveStatic("/", SPIFFS, "/");
+
+        server.on("/", HTTP_POST, [](AsyncWebServerRequest *request)
+                  {
+      int params = request->params();
+      for(int i=0;i<params;i++){
+        AsyncWebParameter* p = request->getParam(i);
+        if(p->isPost()){
+          // HTTP POST ssid value
+          if (p->name() == PARAM_INPUT_1) {
+            _ssid = p->value().c_str();
+            Serial.print("SSID set to: ");
+            Serial.println(_ssid);
+            // Write file to save value
+            writeFile(SPIFFS, ssidPath, _ssid.c_str());
+          }
+          // HTTP POST pass value
+          if (p->name() == PARAM_INPUT_2) {
+            _pass = p->value().c_str();
+            Serial.print("Password set to: ");
+            Serial.println(_pass);
+            // Write file to save value
+            writeFile(SPIFFS, passPath, _pass.c_str());
+          }
+          // HTTP POST ip value
+          if (p->name() == PARAM_INPUT_3) {
+            _ip = p->value().c_str();
+            Serial.print("IP Address set to: ");
+            Serial.println(_ip);
+            // Write file to save value
+            writeFile(SPIFFS, ipPath, _ip.c_str());
+            
+          }
+          // HTTP POST gateway value
+          if (p->name() == PARAM_INPUT_4) {
+            _gateway = p->value().c_str();
+            Serial.print("Gateway set to: ");
+            Serial.println(_gateway);
+            // Write file to save value
+            writeFile(SPIFFS, gatewayPath, _gateway.c_str());
+          }
+          
+          //Serial.printf("POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+        }
+      }
+        request->send(200, "text/plain", "Done. ESP will restart, connect to your router and go to IP address: " + _ip);
+        delay(3000);
+        writeFile(SPIFFS, statusPath, "OFF");
+        ESP.restart(); });
+        server.begin();
+    }
 }
+// Replaces placeholder with LED state value
+
 void Ota::update(profile_t profile)
 {
 
@@ -128,6 +310,80 @@ void Ota::update(profile_t profile)
     Serial.println("Sketch update apply and reset.");
     Serial.flush();
     InternalStorage.apply(); // this doesn't return
+}
+void Ota::reConnect()
+{
+    WiFi.begin(_ssid.c_str(), _pass.c_str());
+}
+bool Ota::initWiFi()
+{
+
+    if (_ssid == "" || _ip == "")
+    {
+        Serial.println("Undefined SSID or IP address.");
+        return false;
+    }
+    if (true)
+    {
+        WiFi.mode(WIFI_STA);
+        localIP.fromString(_ip.c_str());
+        localGateway.fromString(_gateway.c_str());
+
+        if (!WiFi.config(localIP, localGateway, subnet, dns1, dns2))
+        {
+            Serial.println("STA Failed to configure");
+            return false;
+        }
+        WiFi.begin(_ssid.c_str(), _pass.c_str());
+        Serial.println("Connecting to WiFi...");
+
+        unsigned long currentMillis = millis();
+        previousMillis = currentMillis;
+
+        while (WiFi.status() != WL_CONNECTED)
+        {
+            currentMillis = millis();
+            if (currentMillis - previousMillis >= interval)
+            {
+                Serial.println("Failed to connect.");
+                return false;
+            }
+        }
+
+        Serial.println(WiFi.localIP());
+
+        return true;
+    }
+    else
+    {
+        WiFi.begin(_ssid.c_str(), _pass.c_str());
+        Serial.println("Connecting to WiFi...");
+
+        unsigned long currentMillis = millis();
+        previousMillis = currentMillis;
+
+        while (WiFi.status() != WL_CONNECTED)
+        {
+            currentMillis = millis();
+            if (currentMillis - previousMillis >= interval)
+            {
+                Serial.println("Failed to connect.");
+                return false;
+            }
+        }
+
+        Serial.println(WiFi.localIP());
+
+        return true;
+    }
+}
+void Ota::initSPIFFS()
+{
+    if (!SPIFFS.begin(true))
+    {
+        Serial.println("An error has occurred while mounting SPIFFS");
+    }
+    Serial.println("SPIFFS mounted successfully");
 }
 
 bool Ota::getIsDissconnected()

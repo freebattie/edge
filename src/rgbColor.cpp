@@ -24,19 +24,19 @@ void RgbColor::setColor(Color color)
     {
     case RED: // ALARM LIGHT
         Serial.println("alarm");
-        _strip.setPixelColor(0, 255, 0, 0);
+        _strip.setPixelColor(0, 255, 0, 0); // RED
         _strip.show();
         break;
     case YELLOW: // GROW LIGTH
         _strip.setPixelColor(0, 255, 255, 0);
         _strip.show();
         break;
-    case BLUE: // FIND ME LIGHT
-        _strip.setPixelColor(0, 0, 0, 255);
+    case BLUE:                              // FIND ME LIGHT
+        _strip.setPixelColor(0, 0, 0, 255); // BLUE
         _strip.show();
         break;
-    case GREEN: // ALL OK LIGTH
-        _strip.setPixelColor(0, 0, 255, 0);
+    case GREEN:                             // ALL OK LIGTH
+        _strip.setPixelColor(0, 0, 255, 0); // GREEN
         _strip.show();
         break;
     default:
@@ -68,12 +68,7 @@ void RgbColor::setState(ColorState state)
         _state = state;
         break;
     case NORMAL:
-        if (state == ALARM)
-            break;
-        else
-        {
-            _state = state;
-        }
+        _state = state;
         break;
     case FIND:
         if (state != ALARM && state != FINDOFF)
@@ -85,7 +80,7 @@ void RgbColor::setState(ColorState state)
         break;
 
     case GROW:
-        if (state != ALARM && state != GROWOFF)
+        if (state != ALARM && state != GROWOFF && state != FIND)
             break;
         else
         {

@@ -26,6 +26,7 @@ public:
     bool getIsFindMe();
     profile_t getProfile();
     bool getIsDissconectAlarm();
+    
 
 private:
     static bool _isMqttDisconectAlarm;
@@ -50,7 +51,7 @@ private:
     static bool _isUpdateProfile;
     static bool _isDownload;
     static bool _isFindMe;
-
+    static bool _isblockProfile;
     static profile_t _profile;
     static Storage _storeProfile;
     static AsyncMqttClient _mqttClient;

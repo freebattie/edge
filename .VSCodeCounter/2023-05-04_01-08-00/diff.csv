@@ -1,0 +1,11 @@
+"filename", "language", "C++", "comment", "blank", "total"
+"c:\code\examen\edge\src\lightSensor.cpp", "C++", 8, 2, 3, 13
+"c:\code\examen\edge\src\lightSensor.h", "C++", -1, 0, 1, 0
+"c:\code\examen\edge\src\main.cpp", "C++", 0, 2, 12, 14
+"c:\code\examen\edge\src\mqtt.cpp", "C++", 48, -1, 10, 57
+"c:\code\examen\edge\src\mqtt.h", "C++", 1, 0, 0, 1
+"c:\code\examen\edge\src\ota.cpp", "C++", -1, 0, 1, 0
+"c:\code\examen\edge\src\rgbColor.cpp", "C++", -5, 0, 0, -5
+"c:\code\examen\edge\src\roomStatus.cpp", "C++", -1, 2, 1, 2
+"c:\code\examen\edge\src\struct.h", "C++", -1, 0, 1, 0
+"Total", "-", 48, 5, 29, 82

@@ -12,7 +12,7 @@ typedef struct
     int fw;
     bool isAutoUpdateOn;
     String build;
-    int version; // 0 == latest else version
+   
 
 } profile_t;
 

@@ -182,11 +182,9 @@ void LightSensor::calculateNoise()
 int LightSensor::readDay()
 {
     strftime(_getDay, 3, "%d", &_timeinfo);
-    Serial.print("day: ");
-    Serial.print(_getDay);
+
     int days = atoi(_getDay);
-    Serial.print("/");
-    Serial.println(days);
+
     return days;
 }
 
@@ -194,12 +192,12 @@ float LightSensor::readhour()
 {
     strftime(_getHour, 3, "%H", &_timeinfo);
     strftime(_getMin, 3, "%M", &_timeinfo);
-    char *line = "%s.%s";
+    const char *line = "%s.%s";
     char messuredTime[6]; // devices/:name/profile
 
     snprintf(messuredTime, sizeof(messuredTime), line, _getHour, _getMin);
 
-    int time = atof(messuredTime);
+    float time = atof(messuredTime);
     return round(time);
 }
 
@@ -268,7 +266,8 @@ void LightSensor::handelSunlightLogging()
         Serial.print("lux is : ");
         Serial.println(lux);
         if (lux > LAMP_LUX_LEVEL ||
-            _lightHours.totalHours() + currentH - _lastHours >= MIN_LIGH_HOURS) // CHECK HAOURS
+            _lightHours.totalHours() + currentH - _lastHours >= MIN_LIGH_HOURS ||
+            currentH >= SUN_DOWN_HOUR || currentH <= SUN_UP_HOUR)
         {
 
             if (_lastHours < currentH)
@@ -282,9 +281,22 @@ void LightSensor::handelSunlightLogging()
     }
     else
     {
-        if (lux <= LAMP_LUX_LEVEL &&
-            _lightHours.totalHours() + currentH - _lastHours < MIN_LIGH_HOURS &&
-            currentH >= SUN_UP_HOUR) // CHECK HOURS
+        if (_lightHours.totalHours() + currentH - _lastHours < MIN_LIGH_HOURS &&
+            lux <= LAMP_LUX_LEVEL &&
+            currentH >= SUN_UP_HOUR &&
+            currentH <= SUN_DOWN_HOUR)
+        {
+            if (_lastHours < currentH)
+            {
+                _lightHours.sunLightHours += currentH - _lastHours;
+                _lastHours = currentH;
+            }
+            _rgb.setState(GROW);
+        }
+
+        if (lux <= LAMP_LUX_LEVEL ||
+            currentH >= SUN_UP_HOUR ||
+            currentH <= SUN_DOWN_HOUR) // CHECK HOURS
         {
 
             if (_lastHours < currentH)
@@ -292,7 +304,6 @@ void LightSensor::handelSunlightLogging()
                 _lightHours.sunLightHours += currentH - _lastHours;
                 _lastHours = currentH;
             }
-            _rgb.setState(GROW);
         }
     }
 

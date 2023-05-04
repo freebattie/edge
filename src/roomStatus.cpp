@@ -36,7 +36,7 @@ void RoomStatus::setup()
     }
     _lis.read();
     _lis.getEvent(&_event);
-    _windowOffsett = _event.acceleration.z;
+    _windowOffsett = _event.acceleration.x;
 }
 
 void RoomStatus::handelSensors()
@@ -71,7 +71,9 @@ void RoomStatus::readWindowAngelSensor()
 {
     _lis.read();
     _lis.getEvent(&_event);
-    _windowAngel = _event.acceleration.x * (float)((float)90.0 / (float)10);
+    // device 90 by 10 instead of 9.81 since the sensor shows 10 when at 90 degreees and not the ccorrect value of 9.81
+    // this is not the perfect way to calculat but its ok for testing if window is open or closed;
+    _windowAngel = (_event.acceleration.x - _windowOffsett) * (float)((float)90.0 / (float)10);
 }
 
 void RoomStatus::readDoorSensor()

@@ -15,7 +15,7 @@ bool Mqtt::_isUpdateProfile = false;
 bool Mqtt::_isDownload = false;
 bool Mqtt::_isMqttDisconectAlarm = false;
 bool Mqtt::_isFindMe = false;
-
+bool Mqtt::_isblockProfile = false;
 profile_t Mqtt::_profile;
 Storage Mqtt::_storeProfile;
 AsyncMqttClient Mqtt::_mqttClient;
@@ -95,7 +95,10 @@ void Mqtt::connect()
 
 bool Mqtt::isUpdateProfile()
 {
-    return _isUpdateProfile;
+    if (_isblockProfile)
+        return false;
+    else
+        return _isUpdateProfile;
 }
 
 bool Mqtt::isUpdateFW()
@@ -141,9 +144,7 @@ void Mqtt::connectToMqtt()
 void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
 {
 
-    _profile.deviceName = doc["deviceName"].as<String>();
     _profile.location = doc["location"].as<String>();
-    Serial.println("connected to MQTT SERVER ");
     _profile.mqtt_username = doc["deviceName"].as<String>();
     _profile.mqtt_pass = doc["mqttPass"].as<String>();
     //_profile.city = doc["city"].as<String>();
@@ -154,29 +155,38 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     Serial.println(_profile.build);
     if (_profile.isAutoUpdateOn)
     {
-        // GET FW FOR YOUR BUILD
-        // DOWNLAOD NEW  FW IF THERE IS NEW
+
+        _profile.build = build;
+        _storeProfile.saveProfile(_profile);
     }
     else if (fw != _profile.fw || build != _profile.build)
     {
+        Serial.println("update manual ");
+        Serial.println(_profile.isAutoUpdateOn);
+        Serial.println("FW WE GOT WAS");
+        Serial.println(fw);
+        Serial.println("and is now");
+        Serial.println(_profile.fw);
         Serial.println("changing fw..");
         _profile.fw = fw;
         _isDownload = true;
         _profile.build = build;
+        _isblockProfile = true;
     }
 
     //{"deviceName": "name", "location": "location2", "build" : "dev", "city": "oslo", "fw":"1","auto":"true"} ;
     Serial.print("this is dev?");
     Serial.println(_profile.build);
     _storeProfile.saveProfile(_profile);
-    profile_t _profile = _storeProfile.getProfile();
+    _profile = _storeProfile.getProfile();
     Serial.println(_profile.mqtt_pass);
     _isUpdateProfile = true;
 
     // update city for new location
     StaticJsonDocument<256> docSend;
-    docSend["location"] = _profile.location;
-    docSend["device"] = _profile.deviceName;
+
+    docSend["deviceName"] = _profile.deviceName;
+
     String msg;
     serializeJson(docSend, msg);
 
@@ -185,13 +195,11 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
 
 void Mqtt::onMqttConnect(bool sessionPresent)
 {
+    _profile = _storeProfile.getProfile();
     Serial.println("connected to MQTT SERVER ");
     StaticJsonDocument<256> doc;
     _isMqttDisconectAlarm = false;
     doc["deviceName"] = _profile.deviceName;
-    doc["fw"] = _profile.fw;
-    doc["location"] = _profile.location;
-    doc["build"] = _profile.build;
 
     String msg;
     serializeJson(doc, msg);
@@ -216,11 +224,12 @@ void Mqtt::onMqttConnect(bool sessionPresent)
         snprintf(deviceLocationLogging, sizeof(deviceLocationLogging), LOCATION_LOGGING_TOPIC, deviceLocation);
         _mqttClient.subscribe(deviceLocationLogging, 1);
     }
-
+    _mqttClient.subscribe("findMe", 1);
     _mqttClient.subscribe("devices", 1);
     _mqttClient.subscribe(deviceTopic, 1);
     _mqttClient.subscribe(deviceSetupTopic, 1);
     _mqttClient.subscribe(UPDATE_TOPIC, 1);
+    _mqttClient.subscribe(LOCATIONS_UPDATE, 1);
 }
 // static methods
 void Mqtt::onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -272,18 +281,25 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
         Serial.println(error.c_str());
         return;
     }
-    if (strcmp(topic, LOCATIONS_UPDATE) == 0)
+    if (strcmp(topic, "findMe") == 0)
     {
-        String device = doc["device"];
-        if (device == _profile.deviceName)
+        String deviceName = doc["deviceName"];
+        if (deviceName == _profile.deviceName)
         {
-            _profile.city = doc["city"].as<String>();
+            _isFindMe = doc["findMe"].as<bool>();
         }
     }
-    else if (strcmp(topic, deviceTopic) == 0)
+
+    if (strcmp(topic, LOCATIONS_UPDATE) == 0)
     {
-        /*  _profile.mqtt_pass = doc["password"].as<String>(); */
-        _isFindMe = doc["findMe"];
+        String newLocation = doc["location"];
+        _profile = _storeProfile.getProfile();
+        if (newLocation == _profile.location)
+        {
+            _profile.city = doc["city"].as<String>();
+            _storeProfile.saveProfile(_profile);
+            _isUpdateProfile = true;
+        }
     }
     else if (strcmp(topic, deviceSetupTopic) == 0)
     {
@@ -326,27 +342,69 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
     }
     else if (strcmp(topic, UPDATE_TOPIC) == 0)
     {
+        Serial.println("utopdate chacking");
 
-        if (_profile.build == "dev")
+        if (_profile.build == "DEV")
         {
-            int fw = doc["fw"][0];
+            Serial.println("update auto  dev");
+            Serial.println(_profile.isAutoUpdateOn);
+            Serial.println("FW WE GOT WAS");
+            int fw = doc[0]["fw"];
+            Serial.println(fw);
+            Serial.println("and is now");
+            Serial.println(_profile.fw);
+
             if (_profile.isAutoUpdateOn && fw > _profile.fw)
             {
-                Serial.println("auto update on ");
+                Serial.println("auto update on DEV");
                 Serial.println("new dev FW ready for download ");
                 _profile.fw = fw;
+                _storeProfile.saveProfile(_profile);
+                profile_t _profile = _storeProfile.getProfile();
+                Serial.println(_profile.mqtt_pass);
                 _isDownload = true;
+                _isblockProfile = true;
+                // update city for new location
+                StaticJsonDocument<256>
+                    docSend;
+
+                docSend["deviceName"] = _profile.deviceName;
+
+                String msg;
+                serializeJson(docSend, msg);
+
+                _mqttClient.publish("devices", 1, false, msg.c_str());
             }
         }
-        else
+        else if (_profile.build == "PROD")
         {
-            int fw = doc["fw"][0];
+
+            Serial.println("update auto  prod");
+            Serial.println(_profile.isAutoUpdateOn);
+            Serial.println("FW WE GOT WAS");
+            int fw = doc[1]["fw"];
+            Serial.println(fw);
+            Serial.println("and is now");
+            Serial.println(_profile.fw);
             if (_profile.isAutoUpdateOn && fw > _profile.fw)
             {
                 Serial.println("auto update on ");
                 Serial.println("new prod FW ready for download ");
                 _profile.fw = fw;
+                _storeProfile.saveProfile(_profile);
+                profile_t _profile = _storeProfile.getProfile();
+                Serial.println(_profile.mqtt_pass);
                 _isDownload = true;
+                _isblockProfile = true;
+                // update city for new location
+                StaticJsonDocument<256> docSend;
+
+                docSend["deviceName"] = _profile.deviceName;
+
+                String msg;
+                serializeJson(docSend, msg);
+
+                _mqttClient.publish("devices", 1, false, msg.c_str());
             }
         }
     }

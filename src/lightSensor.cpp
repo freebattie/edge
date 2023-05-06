@@ -19,9 +19,9 @@ void LightSensor::setup()
     }
     Serial.println("Found LTR sensor!");
 
-    _ltr.setGain(LTR3XX_GAIN_96);
+    _ltr.setGain(LTR3XX_GAIN_1);
     _ltr.setIntegrationTime(LTR3XX_INTEGTIME_100);
-    _ltr.setMeasurementRate(LTR3XX_MEASRATE_200);
+    _ltr.setMeasurementRate(LTR3XX_MEASRATE_100);
     delay(200);
     calculateNoise();
 
@@ -233,6 +233,7 @@ void LightSensor::readSensor()
     // Serial.print(_visible_plus_ir);
     // Serial.print("  ch1 are: ");
     // Serial.println(_infrared);
+    delay(100);
 }
 
 bool LightSensor::getIsAlarm()
@@ -263,8 +264,7 @@ void LightSensor::handelSunlightLogging()
         /* if (_lastHours <= currentH)
             return; */
         // STOP GROW LIGHTS AND COLLECT TIME
-        Serial.print("lux is : ");
-        Serial.println(lux);
+
         if (lux > LAMP_LUX_LEVEL ||
             _lightHours.totalHours() + currentH - _lastHours >= MIN_LIGH_HOURS ||
             currentH >= SUN_DOWN_HOUR || currentH <= SUN_UP_HOUR)
@@ -284,7 +284,7 @@ void LightSensor::handelSunlightLogging()
         if (_lightHours.totalHours() + currentH - _lastHours < MIN_LIGH_HOURS &&
             lux <= LAMP_LUX_LEVEL &&
             currentH >= SUN_UP_HOUR &&
-            currentH <= SUN_DOWN_HOUR)
+            currentH < SUN_DOWN_HOUR)
         {
             if (_lastHours < currentH)
             {
@@ -296,7 +296,7 @@ void LightSensor::handelSunlightLogging()
 
         if (lux <= LAMP_LUX_LEVEL ||
             currentH >= SUN_UP_HOUR ||
-            currentH <= SUN_DOWN_HOUR) // CHECK HOURS
+            currentH < SUN_DOWN_HOUR) // CHECK HOURS
         {
 
             if (_lastHours < currentH)
@@ -324,9 +324,12 @@ void LightSensor::calculateLux()
     ratio = _ch1 / (_ch0 + _ch1);
     uint8_t intg = _ltr.getIntegrationTime();
     uint8_t gain = _ltr.getGain();
-
+    if ((_ch0 == 0xFFFF) || (_ch1 == 0xFFFF))
+    {
+        _lux = 0.0;
+    }
     // Determine lux per datasheet equations:
-    if (ratio < 0.45)
+    else if (ratio < 0.45)
     {
         _lux = ((1.7743 * _ch0) + (1.1059 * _ch1)) / ALS_GAIN[gain] / ALS_INT[intg];
     }
@@ -343,6 +346,8 @@ void LightSensor::calculateLux()
 
     else
         _lux = 0;
+
+    delay(300);
 }
 
 void LightSensor::calculateTotalLight(int hours)

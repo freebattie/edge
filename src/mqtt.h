@@ -14,7 +14,7 @@ class Mqtt
 {
 public:
     Mqtt();
-    void setup();
+    void setup(String mqtt_host, String port);
     void connect();
     void publish(String topic, String msg);
     void subscribe(String topic);
@@ -26,7 +26,6 @@ public:
     bool getIsFindMe();
     profile_t getProfile();
     bool getIsDissconectAlarm();
-    
 
 private:
     static bool _isMqttDisconectAlarm;

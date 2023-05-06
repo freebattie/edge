@@ -22,11 +22,15 @@ public:
     bool getIsDissconnected();
     void initSPIFFS();
     void reConnect();
+    void reset();
+    String getMqttServerIP();
+    String getMqttServerPort();
     bool setupDone();
+    bool runMqttSetup();
     wl_status_t status();
 
 private:
-    const char *SERVER = HTTP_SERVER;
+    static const String SERVER;
     bool _isConAlarm;
     const unsigned short SERVER_PORT = HTTP_PORT;
     const char *PATH = "/fw/%s/fw-%s-v%d.bin";
@@ -34,6 +38,7 @@ private:
     bool _isAutoUpdate = false;
     static bool isSetupDone;
     static IPAddress localIP;
+
     // IPAddress localIP(192, 168, 1, 200); // hardcoded
 
     // Set your Gateway IP address

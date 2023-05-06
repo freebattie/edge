@@ -8,7 +8,10 @@ const char *PARAM_INPUT_1 = "ssid";
 const char *PARAM_INPUT_2 = "pass";
 const char *PARAM_INPUT_3 = "ip";
 const char *PARAM_INPUT_4 = "gateway";
-const char *PARAM_INPUT_5 = "status";
+const char *PARAM_INPUT_5 = "httpServer";
+const char *PARAM_INPUT_6 = "httpPort";
+const char *PARAM_INPUT_7 = "mqttServer";
+const char *PARAM_INPUT_8 = "mqttPort";
 // Variables to save values from HTML form
 
 // File paths to save input values permanently
@@ -17,12 +20,17 @@ const char *passPath = "/pass.txt";
 const char *ipPath = "/ip.txt";
 const char *gatewayPath = "/gateway.txt";
 const char *statusPath = "/status.txt";
+const char *httpServerPath = "/httpServer.txt";
+const char *mqttServerPath = "/mqttServer.txt";
+const char *httpServerPortPath = "/httpServerPort.txt";
+const char *mqttServerPortPath = "/mqttServerPort.txt";
 bool Ota::isSetupDone = false;
 IPAddress Ota::localIP;
 // IPAddress localIP(192, 168, 1, 200); // hardcoded
 
 // Set your Gateway IP address
 IPAddress Ota::localGateway;
+
 // IPAddress localGateway(192, 168, 1, 1); //hardcoded
 static IPAddress subnet(255, 255, 255, 0);
 static IPAddress dns1(80, 232, 93, 176);
@@ -41,6 +49,10 @@ String _pass;
 String _ip;
 String _gateway;
 String _status;
+String _mqttServer;
+String _httpServer;
+String _mqttServerPort;
+String _httpServerPort;
 String readFile(fs::FS &fs, const char *path)
 {
     Serial.printf("Reading file: %s\r\n", path);
@@ -98,6 +110,16 @@ String processor(const String &var)
 Ota::Ota()
 {
 }
+String Ota::getMqttServerIP()
+{
+    _mqttServer = readFile(SPIFFS, mqttServerPath);
+    return _mqttServer;
+}
+String Ota::getMqttServerPort()
+{
+    _mqttServerPort = readFile(SPIFFS, mqttServerPortPath);
+    return _mqttServerPort;
+}
 wl_status_t Ota::status()
 {
     return WiFi.status();
@@ -105,6 +127,21 @@ wl_status_t Ota::status()
 
 bool Ota::setupDone()
 {
+
+    if (_status == "ON")
+    {
+        return false;
+    }
+    else if (_status == "OFF")
+    {
+        return true;
+    }
+    else
+        return false;
+}
+bool Ota::runMqttSetup()
+{
+    _status = readFile(SPIFFS, statusPath);
     if (_status == "ON")
     {
         return false;
@@ -126,11 +163,19 @@ void Ota::setup()
     _ip = readFile(SPIFFS, ipPath);
     _gateway = readFile(SPIFFS, gatewayPath);
     _status = readFile(SPIFFS, statusPath);
+    _httpServer = readFile(SPIFFS, httpServerPath);
+    _httpServerPort = readFile(SPIFFS, httpServerPortPath);
+    _mqttServer = readFile(SPIFFS, mqttServerPath);
+    _mqttServerPort = readFile(SPIFFS, mqttServerPortPath);
     Serial.println(_ssid);
     Serial.println(_pass);
     Serial.println(_ip);
     Serial.println(_gateway);
     Serial.println(_status);
+    Serial.println(_httpServer);
+    Serial.println(_mqttServer);
+    Serial.println(_httpServerPort);
+    Serial.println(_mqttServerPort);
 
     if (initWiFi())
     {
@@ -216,6 +261,34 @@ void Ota::setup()
             // Write file to save value
             writeFile(SPIFFS, gatewayPath, _gateway.c_str());
           }
+          if (p->name() == PARAM_INPUT_5) {
+            _httpServer = p->value().c_str();
+            Serial.print("Http server is set to: ");
+            Serial.println(_httpServer);
+            // Write file to save value
+            writeFile(SPIFFS, httpServerPath, _httpServer.c_str());
+          }if (p->name() == PARAM_INPUT_6) {
+            _httpServerPort = p->value().c_str();
+            Serial.print("mqtt Server is set to: ");
+            Serial.println(_httpServerPort);
+            // Write file to save value
+            writeFile(SPIFFS, httpServerPortPath, _httpServerPort.c_str());
+          }
+          if (p->name() == PARAM_INPUT_7) {
+            _mqttServer = p->value().c_str();
+            Serial.print("mqtt Server is set to: ");
+            Serial.println(_mqttServer);
+            // Write file to save value
+            writeFile(SPIFFS, mqttServerPath, _mqttServer.c_str());
+          }
+          if (p->name() == PARAM_INPUT_8) {
+            _mqttServerPort = p->value().c_str();
+            Serial.print("mqtt Server is set to: ");
+            Serial.println(_mqttServerPort);
+            // Write file to save value
+            writeFile(SPIFFS, mqttServerPortPath, _mqttServerPort.c_str());
+          }
+
           
           //Serial.printf("POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
         }
@@ -245,7 +318,7 @@ void Ota::update(profile_t profile)
 
     Serial.print("Check for update file ");
     Serial.println(buff);
-    client.begin(wifiClient, SERVER, SERVER_PORT, buff);
+    client.begin(wifiClient, _httpServer, _httpServerPort.toInt(), buff);
 
     // Make the GET request
     int statusCode = client.GET();
@@ -314,6 +387,12 @@ void Ota::update(profile_t profile)
 void Ota::reConnect()
 {
     WiFi.begin(_ssid.c_str(), _pass.c_str());
+}
+void Ota::reset()
+{
+    writeFile(SPIFFS, ipPath, "");
+    writeFile(SPIFFS, ssidPath, "");
+    ESP.restart();
 }
 bool Ota::initWiFi()
 {

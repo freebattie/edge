@@ -4,8 +4,8 @@
 // #define SECRET_PASS "Tananger22"
 //  #define HTTP_SERVER "172.20.10.8"
 //  #define MQTT_HOST IPAddress(172, 20, 10, 8)
-#define HTTP_SERVER "192.168.0.106"
-#define MQTT_HOST IPAddress(192, 168, 0, 106)
+// #define HTTP_SERVER "192.168.0.106"
+// #define MQTT_HOST IPAddress(192, 168, 0, 106)
 
 // #define HTTP_SERVER "172.26.116.75"
 // #define MQTT_HOST IPAddress(172, 26, 116, 75)
@@ -17,7 +17,7 @@
 #define SUN_UP_HOUR 7
 #define SUN_DOWN_HOUR 22
 #define HEATER_FAILURE_TEMP 23
-#define OFFSET_TEMP -16
+#define OFFSET_TEMP -10
 #define OFFSET_HUMIDITY 50
 #define WEATHER_API_KEY "523956835871b2c18c5357e09cbe3618"
 #define FW_BUILD "dev"
@@ -34,4 +34,4 @@
 
 #define ON_CHANGE_SPACING 2000
 
-#define LAMP_LUX_LEVEL 300
+#define LAMP_LUX_LEVEL 450

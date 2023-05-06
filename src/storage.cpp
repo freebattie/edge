@@ -28,7 +28,7 @@ void Storage::start()
         _profileSave.mqtt_pass = MQTT_PASSWORD;
         _profileSave.mqtt_username = NAME;
         _profileSave.fw = 1;
-        _profileSave.build = "DEV";
+        _profileSave.build = "dev";
         Serial.print("started? ");
         Serial.println(started);
         size_t size = _prefs.putBytes("profile", &_profileSave, sizeof(_profileSave));

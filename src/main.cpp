@@ -18,8 +18,10 @@ Adafruit_DotStar strip = Adafruit_DotStar(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_
 Timer wifiTimer = Timer();
 Timer mqttTimer = Timer();
 Timer apiWeatherTimer = Timer();
-Timer mqttIntervall = Timer();
-Timer msgIntervall = Timer();
+
+Timer restartWifiManagerTimer = Timer();
+Timer transmittingIntervall = Timer();
+Timer LoggerMsgTimer = Timer();
 Ota wifiOta = Ota();
 Mqtt mqttClient = Mqtt();
 Storage store = Storage();
@@ -31,11 +33,13 @@ profile_t profile;
 sensor_flag_t lastFlags;
 sensor_flag_t currentFlags;
 live_values_t liveValues;
-light_data_t totalHoursOfLight;
-mqtt_testing_t mqttTesting;
+
 ColorState oldState = NORMAL;
 bool isblockProfile = false;
 const char *URL = "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric";
+int outsideTemp;
+String sky;
+
 void setupTimers();
 void handelConnections();
 void readLiveSensorValues();
@@ -48,10 +52,6 @@ void handelProfileUpdate();
 String GetWeather();
 void handelDownloadFW();
 void handelFindMe();
-Timer transmittingIntervall = Timer();
-Timer LoggerMsgTimer = Timer();
-int outsideTemp;
-String sky;
 
 void setup()
 {
@@ -60,12 +60,22 @@ void setup()
   Serial.begin(115200);
   delay(4000);
   SPIFFS.begin(false);
+  if (wifiOta.runMqttSetup())
+  {
+    String mqttserver = wifiOta.getMqttServerIP();
+    String mqttserverPort = wifiOta.getMqttServerPort();
+    Serial.println("IP AND PORT");
+    Serial.println(mqttserver);
+    Serial.println(mqttserverPort);
+    mqttClient.setup(mqttserver, mqttserverPort);
+  }
 
-  mqttClient.setup();
   wifiOta.setup();
+
   delay(1000);
   if (wifiOta.setupDone())
   {
+
     rgb.setup();
     tempSensor.setup();
     room.setup();
@@ -290,6 +300,7 @@ void readLiveSensorValues()
 String GetWeather()
 {
   char url_path[120];
+  profile = store.getProfile();
   Serial.println(profile.city);
   snprintf(url_path, sizeof(url_path), URL, profile.city, WEATHER_API_KEY);
   HTTPClient http;
@@ -325,7 +336,6 @@ bool transmittGivenValueOnChange(bool oldVal, bool newVal, String type, String n
   if (oldVal != newVal)
   {
 
-    msgIntervall.reset();
     doc["type"] = type;
     doc["name"] = name;
     doc["status"] = newVal;
@@ -397,7 +407,7 @@ void transmittLiveValues()
   doc["lux"] = liveValues.lux;
   doc["temp"] = liveValues.temp;
   doc["humidity"] = liveValues.humidity;
-
+  profile = store.getProfile();
   serializeJson(doc, msg);
   mqttClient.publish("locations/" + profile.location + "/live", msg);
 
@@ -406,34 +416,56 @@ void transmittLiveValues()
 
 void setupTimers()
 {
-  mqttIntervall.setInterval(1000);
-  mqttIntervall.start();
+
   apiWeatherTimer.setInterval(10 * 60 * 1000);
   apiWeatherTimer.start();
 
   wifiTimer.setInterval(5000);
   wifiTimer.start();
-  msgIntervall.setInterval(2000);
-  msgIntervall.start();
+
   mqttTimer.setInterval(5000);
   mqttTimer.start();
+  restartWifiManagerTimer.setInterval(1000 * 60 * 5);
+  restartWifiManagerTimer.stop();
 }
+
 void handelConnections()
 {
   if (wifiOta.status() != WL_CONNECTED && wifiTimer.checkInterval() == RUNCODE)
   {
     // go to http://deviceip and reset wifimanger to change network
     Serial.println("Lost connection to wifi.. ");
+
+    delay(2000);
+    if (restartWifiManagerTimer.checkInterval() == STOPPED)
+    {
+      restartWifiManagerTimer.reset();
+      restartWifiManagerTimer.start();
+    }
+    if (restartWifiManagerTimer.checkInterval() == RUNCODE)
+    {
+      Serial.println("Restarting WifiManger please config device again. ");
+      delay(3000);
+      wifiOta.reset();
+    }
     Serial.println("go to http://deviceip and reset wifimanger to change network ");
     Serial.println("trying to reconnect..  ");
-    delay(2000);
     wifiOta.reConnect();
   }
   else if (!mqttClient.connected() &&
-           wifiOta.status() == WL_CONNECTED &&
            mqttTimer.checkInterval() == RUNCODE &&
            wifiOta.setupDone())
   {
+    if (restartWifiManagerTimer.checkInterval() == STOPPED)
+    {
+      restartWifiManagerTimer.reset();
+      restartWifiManagerTimer.start();
+    }
+    if (restartWifiManagerTimer.checkInterval() == RUNCODE)
+    {
+      wifiOta.reset();
+    }
+
     mqttTimer.reset();
     Serial.println("Connected to wifi but no Mqtt server found.. ");
 
@@ -446,6 +478,9 @@ void handelConnections()
     Serial.println("dissconnected from mqtt.. ");
 
     delay(200);
+  }
+  else
+  {
   }
 }
 #pragma endregion

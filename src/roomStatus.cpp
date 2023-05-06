@@ -12,6 +12,7 @@ void RoomStatus::setup()
     _startTimer = millis();
     _doorTimer.setInterval(5000);
     _doorTimer.start();
+    _doorTimer.stop();
     if (!_lis.begin(0x18))
     { // change this to 0x19 for alternative i2c address
 
@@ -53,8 +54,7 @@ float RoomStatus::getWindowAngel()
 
 bool RoomStatus::getIsWindowOpen()
 {
-    Serial.print("window angel");
-    Serial.println(_windowAngel);
+
     if (_windowAngel > 3)
         return true;
 
@@ -87,16 +87,16 @@ void RoomStatus::readDoorSensor()
     }
     else if (_doorTimer.checkInterval() == RUNCODE || _doorTimer.checkInterval() == STOPPED)
     {
-        _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
-        _doorTimer.stop();
-    }
-    else
-    {
         if (!_startDoorTimer)
         {
             _doorTimer.reset();
             _doorTimer.start();
             _startDoorTimer = true;
+        }
+        else
+        {
+            _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
+            _doorTimer.stop();
         }
     }
 }

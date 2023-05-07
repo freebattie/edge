@@ -20,7 +20,8 @@ Timer mqttTimer = Timer();
 Timer apiWeatherTimer = Timer();
 
 Timer restartWifiManagerTimer = Timer();
-Timer transmittingIntervall = Timer();
+Timer transmittingLiveIntervall = Timer();
+Timer transmittingChangedIntervall = Timer();
 Timer LoggerMsgTimer = Timer();
 Ota wifiOta = Ota();
 Mqtt mqttClient = Mqtt();
@@ -55,7 +56,7 @@ void handelFindMe();
 
 void setup()
 {
-  transmittingIntervall.setInterval(600);
+
   setupTimers();
   Serial.begin(115200);
   delay(4000);
@@ -101,7 +102,9 @@ void setup()
       return;
     }
     outsideTemp = doc["main"]["temp"];
-    sky = doc["weather"]["main"].as<String>();
+    Serial.println("outsideTemp");
+    Serial.println(outsideTemp);
+    sky = doc["weather"][0]["main"].as<String>();
     doc.clear();
   }
   else
@@ -135,10 +138,10 @@ void loop()
         Serial.println("is not logging");
       }
     }
-    if (transmittingIntervall.checkInterval() == RUNCODE)
+    if (transmittingLiveIntervall.checkInterval() == RUNCODE)
     {
       // Serial.println("intervall");
-      transmittingIntervall.reset();
+      transmittingLiveIntervall.reset();
 
       if (lastFlags.isLogging || currentFlags.isLogging)
       {
@@ -335,16 +338,19 @@ bool transmittGivenValueOnChange(bool oldVal, bool newVal, String type, String n
 
   if (oldVal != newVal)
   {
+    if (transmittingChangedIntervall.checkInterval() == RUNCODE)
+    {
+      transmittingChangedIntervall.reset();
+      doc["type"] = type;
+      doc["name"] = name;
+      doc["status"] = newVal;
 
-    doc["type"] = type;
-    doc["name"] = name;
-    doc["status"] = newVal;
-
-    serializeJson(doc, msg);
-    mqttClient.publish("locations/" + profile.location + "/alarm", msg);
-    delay(ON_CHANGE_SPACING);
-    doc.clear();
-    return newVal;
+      serializeJson(doc, msg);
+      mqttClient.publish("locations/" + profile.location + "/alarm", msg);
+      delay(ON_CHANGE_SPACING);
+      doc.clear();
+      return newVal;
+    }
   }
   doc.clear();
   return oldVal;
@@ -416,6 +422,10 @@ void transmittLiveValues()
 
 void setupTimers()
 {
+  transmittingLiveIntervall.setInterval(500);
+  transmittingLiveIntervall.start();
+  transmittingChangedIntervall.setInterval(300);
+  transmittingChangedIntervall.start();
 
   apiWeatherTimer.setInterval(10 * 60 * 1000);
   apiWeatherTimer.start();
@@ -479,8 +489,10 @@ void handelConnections()
 
     delay(200);
   }
-  else
+  else if (restartWifiManagerTimer.checkInterval() == RUNNING && mqttClient.connected())
   {
+    restartWifiManagerTimer.reset();
+    restartWifiManagerTimer.stop();
   }
 }
 #pragma endregion

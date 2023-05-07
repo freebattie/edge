@@ -149,12 +149,11 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     _profile.location = doc["location"].as<String>();
     _profile.mqtt_username = doc["deviceName"].as<String>();
     _profile.mqtt_pass = doc["mqttPass"].as<String>();
-    //_profile.city = doc["city"].as<String>();
+    _profile.city = doc["city"].as<String>();
     int fw = doc["fw"].as<int>();
     _profile.isAutoUpdateOn = doc["auto"].as<bool>();
     String build = doc["build"].as<String>();
 
-    Serial.println(_profile.build);
     if (_profile.isAutoUpdateOn)
     {
 
@@ -182,7 +181,7 @@ void Mqtt::handelSetupProfileTopic(char *payload, StaticJsonDocument<600> doc)
     Serial.println(_profile.build);
     _storeProfile.saveProfile(_profile);
     _profile = _storeProfile.getProfile();
-    Serial.println(_profile.mqtt_pass);
+
     _isUpdateProfile = true;
 
     // update city for new location
@@ -227,7 +226,7 @@ void Mqtt::onMqttConnect(bool sessionPresent)
         snprintf(deviceLocationLogging, sizeof(deviceLocationLogging), LOCATION_LOGGING_TOPIC, deviceLocation);
         _mqttClient.subscribe(deviceLocationLogging, 1);
     }
-    
+
     _mqttClient.subscribe("findMe", 1);
     _mqttClient.subscribe("devices", 1);
     _mqttClient.subscribe(deviceTopic, 1);
@@ -299,7 +298,7 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
     {
         String newLocation = doc["location"];
         _profile = _storeProfile.getProfile();
-        
+
         if (newLocation == _profile.location)
         {
 
@@ -368,7 +367,7 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
                 _profile.fw = fw;
                 _storeProfile.saveProfile(_profile);
                 profile_t _profile = _storeProfile.getProfile();
-                Serial.println(_profile.mqtt_pass);
+
                 _isDownload = true;
                 _isblockProfile = true;
                 // update city for new location
@@ -400,7 +399,7 @@ void Mqtt::onMqttMessage(char *topic, char *payload, AsyncMqttClientMessagePrope
                 _profile.fw = fw;
                 _storeProfile.saveProfile(_profile);
                 profile_t _profile = _storeProfile.getProfile();
-                Serial.println(_profile.mqtt_pass);
+
                 _isDownload = true;
                 _isblockProfile = true;
                 // update city for new location

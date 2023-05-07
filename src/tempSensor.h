@@ -15,7 +15,7 @@ public:
     float getTemp();
     float getHumidity();
     bool getIsHeaterOn();
-    void setIsHeaterOn(bool heater);
+
     bool checkForHeaterFailure(int temp);
 
 private:

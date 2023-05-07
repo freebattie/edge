@@ -192,16 +192,20 @@ void Ota::setup()
             writeFile(SPIFFS, statusPath, _status.c_str());
             writeFile(SPIFFS, ipPath, "");
             writeFile(SPIFFS, ssidPath, "");
-            ESP.restart();
-            request->send(SPIFFS, "/index.html", "text/html", false,processor); });
-
+            delay(3000);
+           
+       
+            request->send(200, "text/plain", "Done. ESP will restart, connect to hotspot ESP-WIFI-MANAGER and go to ip 192.168.4.1" );
+            delay(3000);
+            ESP.restart(); });
         // Route to set GPIO state to LOW
         server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request)
                   {
             _status = "OFF";
             writeFile(SPIFFS, statusPath, _status.c_str());
-            ESP.restart();
-            request->send(SPIFFS, "/index.html", "text/html", false),processor; });
+            request->send(200, "text/plain", "Done. ESP will restart, connect to your router and go to IP address: " + _ip); 
+            delay(3000);
+            ESP.restart(); });
         server.begin();
     }
     else
@@ -294,8 +298,9 @@ void Ota::setup()
         }
       }
         request->send(200, "text/plain", "Done. ESP will restart, connect to your router and go to IP address: " + _ip);
-        delay(3000);
+        
         writeFile(SPIFFS, statusPath, "OFF");
+        delay(3000);
         ESP.restart(); });
         server.begin();
     }

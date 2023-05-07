@@ -10,9 +10,9 @@ RoomStatus::RoomStatus(RgbColor &rgb) : _rgb(rgb)
 void RoomStatus::setup()
 {
     _startTimer = millis();
-    _doorTimer.setInterval(5000);
+    _doorTimer.setInterval(10000);
     _doorTimer.start();
-    _doorTimer.stop();
+
     if (!_lis.begin(0x18))
     { // change this to 0x19 for alternative i2c address
 
@@ -82,21 +82,23 @@ void RoomStatus::readDoorSensor()
     if (!tmp)
     {
         _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
-        _startDoorTimer = false;
+        _startDoorTimer = true;
         _doorTimer.stop();
     }
     else if (_doorTimer.checkInterval() == RUNCODE || _doorTimer.checkInterval() == STOPPED)
     {
-        if (!_startDoorTimer)
+        if (_startDoorTimer)
         {
+
             _doorTimer.reset();
-            _doorTimer.start();
-            _startDoorTimer = true;
+
+            _startDoorTimer = false;
         }
         else
         {
             _isDoorOpen = digitalRead(HALL_SENSOR_PIN);
             _doorTimer.stop();
+            _startDoorTimer = false;
         }
     }
 }

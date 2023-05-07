@@ -53,10 +53,12 @@ status_t Timer::checkInterval()
 
         return RUNCODE;
     }
+    _is_stopped = false;
     return RUNNING;
 }
 
 void Timer::reset()
 {
     _prev = millis();
+    _is_stopped = false;
 }

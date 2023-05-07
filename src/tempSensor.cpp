@@ -21,8 +21,9 @@ void TempSensor::setup()
 
 void TempSensor::handelSensor()
 {
-    readHeater();
+
     readTemp();
+    readHeater();
     readHumidity();
 
     if (_isTempAlarm || _isHeaterFailure || _isHumidtyAlarm)
@@ -55,11 +56,6 @@ bool TempSensor::getIsHeaterOn()
     return _isHeaterOn;
 }
 
-void TempSensor::setIsHeaterOn(bool heater)
-{
-    _isHeaterOn = heater;
-}
-
 bool TempSensor::checkForHeaterFailure(int temp)
 {
     if (_isHeaterOn && _currentTemp < temp)
@@ -83,9 +79,9 @@ void TempSensor::readTemp()
         _isTempAlarm = false;
         _currentTemp = temp;
         if (_currentTemp < HEATER_FAILURE_TEMP + 2)
-            setIsHeaterOn(true);
+            _isHeaterOn = true;
         else
-            setIsHeaterOn(false);
+            _isHeaterOn = false;
     }
     else
     {
